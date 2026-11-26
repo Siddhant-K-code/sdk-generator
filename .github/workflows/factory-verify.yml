@@ -1,0 +1,177 @@
+name: SDK factory verify
+
+# Runs each open factory PR in the SDK forks: install, the SDK's own checks and
+# the change's acceptance pack, on the PR head and, where it tells us
+# something, on its base. Posts the result to the PR and its tracking issue and
+# labels the PR. No model calls.
+#
+# The verify job runs PR code. It gets no secrets and restores no cache, and
+# its results are advisory: the PR's code runs in the same job as the checks,
+# so it can change what that job reports. A maintainer still reviews every PR.
+# The report job holds FACTORY_TOKEN and reads the verify artifacts as data.
+
+on:
+  workflow_run:
+    workflows: ["SDK factory port worker", "Sync SDKs with generator"]
+    types: [completed]
+  schedule:
+    - cron: "37 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: "Only this PR, as a path like owner/js-sdk/pull/5 (empty for every open factory PR)"
+        type: string
+        default: ""
+      force:
+        description: "Verify heads that already have a result"
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: factory-verify
+  cancel-in-progress: false
+
+jobs:
+  find:
+    if: vars.FACTORY_PAUSED != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.find.outputs.matrix }}
+      count: ${{ steps.find.outputs.count }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Find factory PRs to verify
+        id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr }}
+          FORCE: ${{ inputs.force || false }}
+        run: python3 factory/scripts/factory_verify.py find --pr "$PR" --force "$FORCE"
+
+  verify:
+    needs: find
+    if: needs.find.outputs.count != '0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix: ${{ fromJSON(needs.find.outputs.matrix) }}
+    name: verify ${{ matrix.sdk }} PR ${{ matrix.pr }}
+    steps:
+      - name: Checkout the factory
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: hub
+          persist-credentials: false
+
+      - name: Checkout the PR head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ matrix.repo }}
+          ref: ${{ matrix.head_sha }}
+          path: head
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Toolchains match the port worker. Every dependency cache is off: this
+      # job runs PR code, and a cache it saved could reach other jobs.
+      - name: Set up Node
+        if: matrix.sdk == 'js'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Set up Go
+        if: matrix.sdk == 'go'
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: head/go.mod
+          cache: false
+
+      - name: Set up Python
+        if: matrix.sdk == 'python'
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+
+      - name: Set up uv
+        if: matrix.sdk == 'python'
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: false
+
+      - name: Set up Java
+        if: matrix.sdk == 'java'
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up .NET
+        if: matrix.sdk == 'dotnet'
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+
+      # Leaves time for the upload below inside the job timeout.
+      - name: Verify
+        timeout-minutes: 80
+        env:
+          SDK: ${{ matrix.sdk }}
+          CHANGE_ID: ${{ matrix.change_id }}
+          BASE_SHA: ${{ matrix.base_sha }}
+        run: python3 hub/factory/scripts/factory_verify.py run --sdk "$SDK" --change-id "$CHANGE_ID" --base-sha "$BASE_SHA"
+
+      - name: Upload the result
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: verify-${{ matrix.sdk }}-${{ matrix.pr }}
+          path: out/
+          retention-days: 14
+          if-no-files-found: warn
+
+  report:
+    needs: [find, verify]
+    if: always() && needs.find.result == 'success' && needs.find.outputs.count != '0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # A verify job that never started leaves no artifact. The report then
+      # says the PR has no result.
+      - name: Download the results
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: verify-*
+          path: results
+
+      - name: Post the results
+        env:
+          MATRIX: ${{ needs.find.outputs.matrix }}
+          GH_TOKEN: ${{ github.token }}
+          FACTORY_TOKEN: ${{ secrets.FACTORY_TOKEN }}
+        run: python3 factory/scripts/factory_verify.py report --results results

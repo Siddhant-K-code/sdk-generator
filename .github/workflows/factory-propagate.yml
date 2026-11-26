@@ -1,0 +1,88 @@
+name: SDK factory router
+
+# Starts the SDK factory for one issue. Open an issue with the "SDK factory
+# change" form, or add the `factory:propagate` label to an issue that uses the
+# form layout. The router posts a plan, syncs the forks and starts the lane's
+# workflows. It never calls a model. See factory/README.md.
+#
+# vars.FACTORY_REACH (optional JSON) overrides `reach` in factory/sdks.yaml,
+# so a team can keep which SDKs each kind of change reaches out of the repo.
+
+on:
+  issues:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "Issue number to route"
+        required: true
+        type: string
+      force:
+        description: "Start again even if the factory already started this issue"
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: factory-route-${{ github.event.issue.number || inputs.issue_number }}
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    if: >-
+      vars.FACTORY_PAUSED != 'true' &&
+      (github.event_name == 'workflow_dispatch' || github.event.label.name == 'factory:propagate')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      ok: ${{ steps.check.outputs.ok }}
+    steps:
+      # The issue form adds the label for anyone who opens it, so the sender
+      # must have write access. Only writers can dispatch, so that path passes.
+      - name: Check the sender's permission
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          SENDER: ${{ github.event.sender.login }}
+        run: |
+          if [[ "$EVENT" == "workflow_dispatch" ]]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          permission=$(gh api "repos/${GITHUB_REPOSITORY}/collaborators/${SENDER}/permission" --jq .permission 2>/dev/null || echo none)
+          echo "Sender ${SENDER} has permission: ${permission}"
+          case "$permission" in
+            admin|maintain|write) echo "ok=true" >> "$GITHUB_OUTPUT" ;;
+            *)
+              echo "ok=false" >> "$GITHUB_OUTPUT"
+              echo "::notice::${SENDER} does not have write access, so the factory did not start."
+              ;;
+          esac
+
+  route:
+    needs: gate
+    if: needs.gate.outputs.ok == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+      actions: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Route the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FACTORY_TOKEN: ${{ secrets.FACTORY_TOKEN }}
+          HAS_COPILOT_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN != '' }}
+          FACTORY_REACH: ${{ vars.FACTORY_REACH }}
+          ISSUE: ${{ github.event.issue.number || inputs.issue_number }}
+          FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force || false }}
+        run: python3 factory/scripts/factory_route.py --issue "$ISSUE" --force "$FORCE"

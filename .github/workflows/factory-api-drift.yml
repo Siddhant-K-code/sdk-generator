@@ -1,0 +1,35 @@
+name: SDK factory API drift
+
+# Keeps one `factory:api-drift` issue open while the spec on API main differs
+# from the `OPEN_API_REF` pin in the Makefile. The issue is a Lane A request:
+# add `factory:propagate` to regenerate the SDKs. No model calls.
+
+on:
+  schedule:
+    - cron: "23 7 * * 1"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: factory-api-drift
+  cancel-in-progress: false
+
+jobs:
+  drift:
+    if: vars.FACTORY_PAUSED != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Compare the API spec with the pin
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 factory/scripts/factory_scan.py drift

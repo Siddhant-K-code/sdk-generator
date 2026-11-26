@@ -1,0 +1,112 @@
+# SDK registry for the SDK factory.
+#
+# Every factory script reads this file at run time. GitHub needs a few lists
+# written out, so a new SDK also needs an option in the issue form, the worker's
+# `sdk` input, SYNC_SDKS in factory_route.py and the sync-sdks.yaml matrix.
+# test_factory.py fails until those lists match this file. A new language also
+# needs toolchain setup steps in factory-port.md and factory-verify.yml.
+#
+# `repo` is the repository name under the factory owner (the owner of this
+# repository). In the lab the forks keep their historical names, so go and
+# python differ from upstream. Upstream they would be openfga/go-sdk and so on.
+version: 1
+
+# The API definition. Lane A regenerates the SDKs against a newer commit of it.
+api:
+  upstream: openfga/api
+  repo: openfga-api
+
+# The generator. Lane C regenerates the SDKs from a branch, PR or commit of it.
+generator:
+  upstream: openfga/sdk-generator
+  repo: sdk-generator
+
+sdks:
+  js:
+    upstream: openfga/js-sdk
+    repo: js-sdk
+    language: TypeScript
+    generator_target: test-client-js
+    setup: node
+    install: npm ci
+    # The worker runs these in its sandbox and the verify job runs them on the
+    # PR head. Each one must exit non-zero on failure.
+    check:
+      - "npm run lint"
+      - "npm test"
+    # Files that can change how tests run. When an acceptance pack applies, the
+    # verify job sends a PR that touches them to a human.
+    test_config: ["package.json", "*jest.config*", "*.mocharc*", "*vitest.config*"]
+    style: camelCase option names, optional fields with `?:`, JSDoc on public types.
+  go:
+    upstream: openfga/go-sdk
+    repo: openfga-go-sdk
+    language: Go
+    generator_target: test-client-go
+    setup: go
+    install: go mod download
+    check:
+      - 'test -z "$(gofmt -l .)"'
+      - "go vet ./..."
+      - "go test ./..."
+    test_config: []
+    style: PascalCase exported fields, pointer types for optional values, table-driven tests.
+  python:
+    upstream: openfga/python-sdk
+    repo: openfga-python-sdk
+    language: Python
+    generator_target: test-client-python
+    setup: python
+    install: uv sync
+    check:
+      - "uv run ruff check ."
+      - "uv run ruff format --check ."
+      - 'uv run pytest -m "not integration" test/'
+    test_config: ["*conftest.py", "pytest.ini", "pyproject.toml", "setup.cfg", "tox.ini"]
+    style: snake_case names, keep the async client and the sync client in step.
+  java:
+    upstream: openfga/java-sdk
+    repo: java-sdk
+    language: Java
+    generator_target: test-client-java
+    setup: java
+    install: ./gradlew assemble
+    check:
+      - "./gradlew spotlessCheck"
+      - "./gradlew test"
+    test_config: ["*build.gradle*", "*settings.gradle*", "gradle.properties", "gradle/*"]
+    style: camelCase fields with fluent setters, keep Javadoc on public API.
+  dotnet:
+    upstream: openfga/dotnet-sdk
+    repo: dotnet-sdk
+    language: C#
+    generator_target: test-client-dotnet
+    setup: dotnet
+    install: dotnet restore ./OpenFga.Sdk.sln
+    # net48 needs Windows, so the factory skips it. Upstream CI still covers it.
+    check:
+      - "dotnet format --verify-no-changes --severity info"
+      - "dotnet test --framework net8.0"
+    test_config: ["*.csproj", "*Directory.Build.props", "*Directory.Build.targets", "*.runsettings"]
+    # The customClaims acceptance evidence was recorded on net9.0.
+    acceptance_env:
+      DOTNET_TEST_FRAMEWORK: net9.0
+    style: PascalCase properties, nullable reference types, XML doc comments.
+
+# Which SDKs each kind of change reaches when the issue leaves Target SDKs
+# empty. The keys match the "Kind of change" field of the issue form, and `all`
+# means every SDK above. Lane B ports only to SDKs in reach. Lanes A and C still
+# regenerate every SDK and only skip the port worker. SDKs picked in the issue
+# always run. The optional FACTORY_REACH repository variable overrides this per
+# kind, as JSON in the same shape, for example {"<kind>": ["<sdk>", "<sdk>"]}.
+reach:
+  baseline: all
+  core-api: all
+  other-api: all
+  fix: all
+
+# Files the factory never edits by hand in any SDK.
+never_edit:
+  - CHANGELOG.md
+  - .release-please-manifest.json
+  - release-please-config.json
