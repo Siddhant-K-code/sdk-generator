@@ -210,7 +210,7 @@ build-client: build-openapi
 
 .PHONY: build-openapi
 build-openapi: init get-openapi-doc
-	cat "${DOCS_CACHE_DIR}/openfga.openapiv2.raw.json" | \
+	cat "${DOCS_CACHE_DIR}/openfga.openapiv2.compat.json" | \
 		jq '(.. | .tags? | select(.)) |= ["OpenFga"] | (.tags? | select(.)) |= [{"name":"OpenFga"}] | del(.definitions.ReadTuplesParams, .definitions.ReadTuplesResponse, .paths."/stores/{store_id}/read-tuples", .definitions.StreamedListObjectsRequest, .definitions.StreamedListObjectsResponse, .paths."/stores/{store_id}/streamed-list-objects") | .definitions.CreateStoreRequest["x-skip-from-json"] = true' > \
 		${DOCS_CACHE_DIR}/openfga.openapiv2.json
 	sed -i -e 's/"Object"/"FgaObject"/g' ${DOCS_CACHE_DIR}/openfga.openapiv2.json
@@ -230,7 +230,7 @@ build-client-non-streamed: build-openapi-non-streamed
 
 .PHONY: build-openapi-streamed
 build-openapi-streamed: init get-openapi-doc
-	cat "${DOCS_CACHE_DIR}/openfga.openapiv2.raw.json" | \
+	cat "${DOCS_CACHE_DIR}/openfga.openapiv2.compat.json" | \
 		jq '(.. | .tags? | select(.)) |= ["OpenFga"] | (.tags? | select(.)) |= [{"name":"OpenFga"}] | del(.definitions.ReadTuplesParams, .definitions.ReadTuplesResponse, .paths."/stores/{store_id}/read-tuples") | .paths."/stores/{store_id}/streamed-list-objects".post["x-streaming"] = true | .paths."/stores/{store_id}/streamed-list-objects".post["x-streaming-response-type"] = "StreamedListObjectsResponse" | .definitions.CreateStoreRequest["x-skip-from-json"] = true' > \
 		${DOCS_CACHE_DIR}/openfga.openapiv2.json
 	sed -i -e 's/"Object"/"FgaObject"/g' ${DOCS_CACHE_DIR}/openfga.openapiv2.json
@@ -239,8 +239,8 @@ build-openapi-streamed: init get-openapi-doc
 
 .PHONY: build-openapi-non-streamed
 build-openapi-non-streamed: init get-openapi-doc
-	cat "${DOCS_CACHE_DIR}/openfga.openapiv2.raw.json" | \
-		jq '(.. | .tags? | select(.)) |= ["OpenFga"] | (.tags? | select(.)) |= [{"name":"OpenFga"}] | del(.definitions.ReadTuplesParams, .definitions.ReadTuplesResponse, .paths."/stores/{store_id}/read-tuples", .definitions.StreamedListObjectsResponse, .definitions.StreamResultOfStreamedListObjectsResponse, .paths."/stores/{store_id}/streamed-list-objects") | .definitions.CreateStoreRequest["x-skip-from-json"] = true' > \
+	cat "${DOCS_CACHE_DIR}/openfga.openapiv2.compat.json" | \
+		jq '(.. | .tags? | select(.)) |= ["OpenFga"] | (.tags? | select(.)) |= [{"name":"OpenFga"}] | del(.definitions.ReadTuplesParams, .definitions.ReadTuplesResponse, .paths."/stores/{store_id}/read-tuples", .definitions.StreamedListObjectsRequest, .definitions.StreamedListObjectsResponse, .definitions.StreamResultOfStreamedListObjectsResponse, .paths."/stores/{store_id}/streamed-list-objects") | .definitions.CreateStoreRequest["x-skip-from-json"] = true' > \
 		${DOCS_CACHE_DIR}/openfga.openapiv2.json
 	sed -i -e 's/"Object"/"FgaObject"/g' ${DOCS_CACHE_DIR}/openfga.openapiv2.json
 	sed -i -e 's/#\/definitions\/Object"/#\/definitions\/FgaObject"/g' ${DOCS_CACHE_DIR}/openfga.openapiv2.json
@@ -251,6 +251,8 @@ get-openapi-doc:
 	mkdir -p "${DOCS_CACHE_DIR}"
 	curl "${OPEN_API_URL}" \
 	     -o "${DOCS_CACHE_DIR}/openfga.openapiv2.raw.json"
+	jq -f config/common/openapi-compat.jq "${DOCS_CACHE_DIR}/openfga.openapiv2.raw.json" > \
+		"${DOCS_CACHE_DIR}/openfga.openapiv2.compat.json"
 
 .PHONY: utils-tag-client
 utils-tag-client:

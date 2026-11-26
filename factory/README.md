@@ -221,6 +221,11 @@ move the hub to a repository that is not a fork.
   every job and spends nothing.
 - After lane A's sync PRs merge, set `OPEN_API_REF` in the Makefile to the
   same API commit. The next drift scan then closes the drift issue.
+- `config/common/openapi-compat.jq` runs on every downloaded API document. It
+  keeps the request model names the SDKs export, and it skips operations
+  tagged `AuthZenService` until maintainers choose to generate them. Users
+  reach those operations through each SDK's API executor. Edit
+  `skipped_tags` to change that.
 - After you change `factory-port.md`, run `gh aw compile --strict` with gh-aw
   v1.2.2 and commit the lock file. CI fails when the lock file is stale.
 - Run the factory's tests with
