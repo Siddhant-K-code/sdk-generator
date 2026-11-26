@@ -31,13 +31,25 @@ flowchart LR
 The port worker is the only step that calls a model. The router, the
 scanners, the sync job and the verify job are plain scripts.
 
+Lanes A and C apply only what the change alters. The sync job builds each SDK
+twice, both times on top of the SDK's main: once before the change and once
+after. Git then merges the difference into main. Release versions, hand edits
+and every line the change leaves alone stay as main has them. "Before" is
+`OPEN_API_REF` in the Makefile for lane A, and for lane C the generator commit
+before the change: the parent of a commit on main, or the point where a branch
+left main. If the change touches a line that main edited by hand, the job
+stops and names the files to merge by hand. `factory/scripts/delta_sync.sh`
+does this. Some build steps run in Docker as root and leave files the runner
+cannot write, so before the second build the script writes those files again
+from main. A sync run without a change id still regenerates the whole SDK.
+
 ## Workflows
 
 | Workflow | File | Trigger | What it does |
 |---|---|---|---|
 | SDK factory router | `factory-propagate.yml` | The `factory:propagate` label, or a manual run with an issue number | Checks that the sender can write here, posts the plan, syncs the target forks and starts the lane |
 | SDK factory port worker | `factory-port.md`, compiled to `factory-port.lock.yml` | Started by the router or by the sync job | Ports one change into one fork and opens one draft PR |
-| Sync SDKs with generator | `sync-sdks.yaml` | A manual run, or a push to main | Regenerates the SDKs. The factory adds a change id, a record of the sync PRs and an optional port step |
+| Sync SDKs with generator | `sync-sdks.yaml` | A manual run, or a push to main | Regenerates the SDKs. The factory adds a change id, delta mode, a record of the sync PRs and an optional port step |
 | SDK factory verify | `factory-verify.yml` | After a worker or sync run, every 6 hours, or a manual run | Runs the checks and the acceptance pack on each open factory PR, labels it and reports |
 | SDK factory watcher | `factory-watch.yml` | Daily, or a manual run (a dry run by default) | Opens a `factory:candidate` issue for each feat or fix PR merged upstream that no factory issue covers |
 | SDK factory API drift | `factory-api-drift.yml` | Weekly, or a manual run | Keeps one `factory:api-drift` issue open while the API is ahead of `OPEN_API_REF` in the Makefile |
@@ -220,7 +232,13 @@ move the hub to a repository that is not a fork.
 - Set `FACTORY_PAUSED` to `true` to stop the factory. A paused worker skips
   every job and spends nothing.
 - After lane A's sync PRs merge, set `OPEN_API_REF` in the Makefile to the
-  same API commit. The next drift scan then closes the drift issue.
+  same API commit. The next drift scan then closes the drift issue, and the
+  next delta sync measures from that commit.
+- When a delta sync stops on hand-edited lines, run
+  `factory/scripts/delta_sync.sh <language>` from the generator root with the
+  SDK in `clients/fga-<language>-sdk`, Docker running, and the job's
+  `NEW_OPENAPI_REF` or `BASE_GENERATOR_DIR`. It stops with conflict markers in
+  the files it names. Resolve them, commit, and push to the sync branch.
 - `config/common/openapi-compat.jq` runs on every downloaded API document. It
   keeps the request model names the SDKs export, and it skips operations
   tagged `AuthZenService` until maintainers choose to generate them. Users
