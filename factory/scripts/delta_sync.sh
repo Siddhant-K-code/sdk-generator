@@ -58,6 +58,20 @@ in_sdk checkout -q --detach
 build "$base_dir"
 before=$(snapshot "factory: before the change")
 in_sdk read-tree -u --reset "$main"
+# Build steps that run in Docker as root can replace files, and the next build
+# cannot write over them. Every tracked file now has the SDK's content, so a
+# fresh copy from the index changes nothing but the owner.
+locked=()
+while IFS= read -r -d '' path; do
+  if [[ -f "$sdk/$path" && ! -w "$sdk/$path" ]]; then
+    locked+=("$path")
+  fi
+done < <(in_sdk ls-files -z)
+if ((${#locked[@]})); then
+  echo "Writing ${#locked[@]} file(s) again that an earlier step left read-only."
+  (cd "$sdk" && rm -f -- "${locked[@]}")
+  in_sdk checkout-index -f -- "${locked[@]}"
+fi
 build "$hub" ${NEW_OPENAPI_REF:+"OPEN_API_REF=$NEW_OPENAPI_REF"}
 after=$(snapshot "factory: after the change")
 in_sdk checkout -q "$start"
@@ -67,7 +81,7 @@ if in_sdk diff --quiet "$before" "$after"; then
   summary "### $language" "" "The change does not alter this SDK."
   exit 0
 fi
-echo "The change alters $(in_sdk diff --shortstat "$before" "$after")."
+echo "The change alters the $language SDK:$(in_sdk diff --shortstat "$before" "$after")."
 
 skipped=()
 if ! picked=$(in_sdk cherry-pick --no-commit "$after" 2>&1); then
@@ -106,7 +120,7 @@ fi
 echo "::group::Kept as the SDK has them (a full regeneration would change these)"
 in_sdk --no-pager diff --cached --stat "$after"
 echo "::endgroup::"
-summary "### $language" "" \
-  "Applied: $(in_sdk diff --cached --shortstat)." \
-  "Kept as the SDK has them: $(in_sdk diff --cached --shortstat "$after" || true)."
+applied=$(in_sdk diff --cached --shortstat)
+kept=$(in_sdk diff --cached --shortstat "$after")
+summary "### $language" "" "Applied:${applied:- nothing}." "Kept as the SDK has them:${kept:- nothing}."
 in_sdk reset -q

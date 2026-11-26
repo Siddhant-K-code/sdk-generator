@@ -39,7 +39,9 @@ and every line the change leaves alone stay as main has them. "Before" is
 before the change: the parent of a commit on main, or the point where a branch
 left main. If the change touches a line that main edited by hand, the job
 stops and names the files to merge by hand. `factory/scripts/delta_sync.sh`
-does this. A sync run without a change id still regenerates the whole SDK.
+does this. Some build steps run in Docker as root and leave files the runner
+cannot write, so before the second build the script writes those files again
+from main. A sync run without a change id still regenerates the whole SDK.
 
 ## Workflows
 

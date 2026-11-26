@@ -30,6 +30,10 @@ printf 'header\\nspec: %s\\ntemplate: %s\\nfooter\\n' "$ref" "$(cat TEMPLATE)" >
 printf '# SDK\\n\\nGenerated intro.\\n' >"$sdk/README.md"
 printf 'built from %s\\n' "$ref" >"$sdk/artifact.txt"
 if [ "$ref" = new ]; then printf 'new model\\n' >"$sdk/model_new.txt"; fi
+if [ -n "${FAKE_READ_ONLY:-}" ]; then
+  printf 'docs\\n' >"$sdk/$FAKE_READ_ONLY"
+  chmod 444 "$sdk/$FAKE_READ_ONLY"
+fi
 """
 
 SDK_MAIN = {
@@ -92,6 +96,7 @@ class DeltaSyncTest(unittest.TestCase):
         self.assertEqual(self.read("model_new.txt"), "new model\n")
         self.assertFalse((self.sdk / "artifact.txt").exists())
         self.assertIn("Left out 1 generated file(s)", result.stdout)
+        self.assertIn("The change alters the js SDK: 3 files changed", result.stdout)
         for state in ("CHERRY_PICK_HEAD", "MERGE_MSG"):
             self.assertFalse((self.sdk / ".git" / state).exists(), state)
         self.assertEqual(sorted(git(self.sdk, "status", "--porcelain").splitlines()), [" M api.txt", "?? model_new.txt"])
@@ -113,6 +118,14 @@ class DeltaSyncTest(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("Merge these files by hand", result.stdout)
         self.assertIn("  api.txt", result.stdout)
+
+    def test_files_a_build_left_read_only_are_written_again(self):
+        # Like a build step that runs as root and replaces a file with the same content.
+        self.commit_main(**{"docs.txt": "docs\n"})
+        result = self.sync(NEW_OPENAPI_REF="new", FAKE_READ_ONLY="docs.txt")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(self.read("api.txt"), "header\nspec: new\ntemplate: v1\nfooter\n")
+        self.assertEqual(self.read("docs.txt"), "docs\n")
 
     def test_no_change_leaves_the_sdk_clean(self):
         self.commit_main()
