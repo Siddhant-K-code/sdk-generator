@@ -224,6 +224,22 @@ class LaneBTest(RouteCase):
         self.assertIn(route.TRACKING_MARKER.format("plan"), comment)
         self.assertIn("1 commit behind", comment)
         self.assertIn("Plan only", comment)
+        self.assertNotIn("Setup needed", comment)
+
+    def test_plan_only_still_lists_missing_setup(self):
+        body = issue_form("B: port an SDK change", "openfga/js-sdk/pull/228", "custom-claims")
+        body = body.replace("- [ ] Plan only", "- [x] Plan only")
+        responses = base_responses(body)
+        responses[("GET", "repos/openfga/js-sdk/pulls/228")] = merged_pr("feat: support custom claims")
+        gh = FakeGitHub(responses)
+
+        self.assertEqual(self.route(gh, factory_token="", has_copilot=False), 0)
+
+        [comment] = gh.comments()
+        self.assertIn("Plan only", comment)
+        self.assertIn("Setup needed first", comment)
+        self.assertIn("`FACTORY_TOKEN`", comment)
+        self.assertIn("`COPILOT_GITHUB_TOKEN`", comment)
 
     def test_missing_copilot_token_falls_back_to_plan(self):
         body = issue_form("B: port an SDK change", "openfga/js-sdk/pull/228", "custom-claims")

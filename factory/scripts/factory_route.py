@@ -494,6 +494,8 @@ def render(plan: Plan, mode: str, rows: list, hub_status: str, pack: str, setup:
         lines.append(
             "Plan only: no forks were synced and nothing was started. To run it, clear **Plan only**, then remove and re-add the `factory:propagate` label."
         )
+        if setup:
+            lines += ["", "Setup needed first:"] + [f"- {item}" for item in setup]
     elif mode == "plan":
         lines.append("Setup needed before the factory can run:")
         lines += [f"- {item}" for item in setup]
