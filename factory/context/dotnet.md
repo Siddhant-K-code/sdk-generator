@@ -1,13 +1,13 @@
 # OpenFGA .NET SDK Context
 
-> Factory worker context for `openfga/dotnet-sdk` (conventions adapted from `openfga/go-sdk#288` `AGENTS.md`/`.claude/rules/*` and verified against `dotnet-sdk`).
+> Factory worker context for `openfga/dotnet-sdk` (conventions adapted from `openfga/go-sdk/pull/288` `AGENTS.md`/`.claude/rules/*` and verified against `dotnet-sdk`).
 
 ## Stack & Verification
 
 - **Project:** `OpenFga.Sdk` (`src/OpenFga.Sdk/OpenFga.Sdk.csproj`), C# `LangVersion 10.0`, multi-targeted `netstandard2.0;net48;net8.0;net9.0`.
 - **Key deps:** `System.Text.Json`, `System.Diagnostics.Metrics` (OpenTelemetry-compatible), `Microsoft.Bcl.AsyncInterfaces`; tests: xUnit + Moq.
 - **Verified command (Linux):** `make lint test-net8 test-net9`
-  - **Important:** `net48` is Windows-only, so do **not** run `make test` or `make check` on Linux runners — leave `net48` to SDK CI.
+  - **Important:** `net48` is Windows-only, so do **not** run `make test` or `make check` on Linux runners; leave `net48` to SDK CI.
   - Auto-format before `make lint`: `make fmt` (`dotnet format ./OpenFga.Sdk.sln`).
   - Targeted test: `dotnet test --framework net8.0 --filter "FullyQualifiedName~OAuth2ClientTests"`.
 
@@ -47,7 +47,7 @@ Check `.openapi-generator/FILES` (191 entries) before editing. Never edit genera
    - **Quirk:** `OAuth2Client.ExchangeTokenAsync` sets `ContentType = "application/x-www-form-urlencode"` (without trailing `d`), and `RequestBuilder.FormEncodedBody` checks that exact string before creating `FormUrlEncodedContent`. Do not change only one side.
    - Preserve `_exchangeLock` + `_inflightExchange` deduplication, `FgaConstants.TokenExpiryThresholdBufferInSec` + `TokenExpiryJitterInSec`, and `metrics.BuildForClientCredentialsResponse(...)`.
 4. **Security:** Never expose secrets/tokens in exception messages or logs; update `Exceptions/SensitiveDataRedactor.cs` if introducing new sensitive fields.
-5. **Tests (`src/OpenFga.Sdk.Test/`):** Add unit tests in `ApiClient/OAuth2ClientTests.cs` (and `Configuration/` tests for validation) using xUnit + Moq + mocked `HttpMessageHandler` — no live network calls.
+5. **Tests (`src/OpenFga.Sdk.Test/`):** Add unit tests in `ApiClient/OAuth2ClientTests.cs` (and `Configuration/` tests for validation) using xUnit + Moq + mocked `HttpMessageHandler`; no live network calls.
 
 ## Idioms & Guardrails
 
@@ -59,6 +59,6 @@ Check `.openapi-generator/FILES` (191 entries) before editing. Never edit genera
 
 ## PR Rules
 
-- **PR title:** Conventional Commits (`feat`, `fix`, `docs`, `test`, `refactor`, `ci`, `perf`, `chore`, `revert`, `release`, optional scope). Do **not** add a title prefix — factory PRs carry the `factory` label.
+- **PR title:** Conventional Commits (`feat`, `fix`, `docs`, `test`, `refactor`, `ci`, `perf`, `chore`, `revert`, `release`, optional scope). Do **not** add a title prefix; factory PRs carry the `factory` label.
 - **Do not edit:** `CHANGELOG.md`, `.release-please-manifest.json`, `release-please-config.json`, `<Version>...<!-- x-release-please-version -->` in `OpenFga.Sdk.csproj`, or generated files in `.openapi-generator/FILES`.
 - **Generated changes:** Route to `sdk-generator` (`config/clients/dotnet/template/`), never hand-patch in `dotnet-sdk`.

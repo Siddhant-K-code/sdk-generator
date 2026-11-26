@@ -1,0 +1,76 @@
+name: SDK factory CI
+
+# Tests the factory scripts, checks its shell scripts and workflows, and checks
+# that the port worker's lock file matches its source. No secrets.
+
+on:
+  pull_request:
+    paths:
+      - "factory/**"
+      - ".github/workflows/factory-*"
+      - ".github/workflows/sync-sdks.yaml"
+      - ".github/ISSUE_TEMPLATE/factory-*"
+      - ".github/aw/**"
+  push:
+    branches: [main]
+    paths:
+      - "factory/**"
+      - ".github/workflows/factory-*"
+      - ".github/workflows/sync-sdks.yaml"
+      - ".github/ISSUE_TEMPLATE/factory-*"
+      - ".github/aw/**"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: factory-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The scripts write to these files when they are set.
+      - name: Unit tests
+        run: env -u GITHUB_STEP_SUMMARY -u GITHUB_OUTPUT python3 -m unittest discover -s factory/scripts -v
+
+      - name: Shell scripts
+        run: |
+          shopt -s nullglob
+          files=(factory/scripts/*.sh factory/acceptance/*/*/run.sh)
+          if [ "${#files[@]}" -eq 0 ]; then exit 0; fi
+          for file in "${files[@]}"; do bash -n "$file"; done
+          shellcheck "${files[@]}"
+
+      - name: Lint workflows
+        run: |
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+          shopt -s nullglob
+          files=(.github/workflows/factory-*.yml .github/workflows/sync-sdks.yaml)
+          lint=()
+          for file in "${files[@]}"; do
+            case "$file" in *.lock.yml) ;; *) lint+=("$file") ;; esac
+          done
+          "$(go env GOPATH)/bin/actionlint" "${lint[@]}"
+
+      - name: Port worker lock file is current
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh extension install github/gh-aw --pin v1.2.2
+          gh aw compile --strict
+          if [ -n "$(git status --porcelain)" ]; then
+            git status --porcelain
+            git --no-pager diff --stat
+            echo "::error::Run 'gh aw compile --strict' with gh-aw v1.2.2 and commit the result."
+            exit 1
+          fi

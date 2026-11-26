@@ -1,0 +1,46 @@
+name: SDK factory watcher
+
+# Opens a `factory:candidate` issue for each feat or fix pull request merged in
+# an upstream SDK that no factory issue covers yet. A maintainer reads the
+# change and adds `factory:propagate` to port it. No model calls.
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "Look back this many days (1 to 30)"
+        type: number
+        default: 2
+      dry_run:
+        description: "Only list the candidates, open no issues"
+        type: boolean
+        default: true
+
+permissions: {}
+
+concurrency:
+  group: factory-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    if: vars.FACTORY_PAUSED != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Look for new SDK changes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DAYS: ${{ inputs.days || 2 }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
+        run: python3 factory/scripts/factory_scan.py watch --days "$DAYS" --dry-run "$DRY_RUN"

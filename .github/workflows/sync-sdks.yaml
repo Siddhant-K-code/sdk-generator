@@ -2,6 +2,19 @@ name: Sync SDKs with generator
 
 # Regenerates the SDKs when generator templates/configs change on main and
 # opens a PR in the SDK repo if the output differs.
+#
+# SDK factory additions (all optional, so the default behaviour is unchanged):
+# - openapi_ref, generator_repo and generator_ref pick what to generate from.
+# - change_id names a factory change. It gives the run its own sync branch and
+#   a draft PR labelled `factory`.
+# - port_after starts the factory port worker on each new sync PR, so an agent
+#   adds the hand-written layer in a stacked draft PR.
+# - Repository names come from factory/sdks.yaml when it exists, then from
+#   vars.SDK_REPO_OVERRIDES, for example {"go":"openfga-go-sdk"}.
+# - vars.FACTORY_SKIP_PUSH_SYNC=true skips the push trigger. Set it in a fork
+#   that merges upstream main, or every merge opens sync PRs.
+# - Without the releaser App or GPG secrets, the push falls back to
+#   secrets.FACTORY_TOKEN and unsigned commits.
 
 on:
   push:
@@ -25,12 +38,36 @@ on:
           - dotnet
           - python
           - java
+      openapi_ref:
+        description: "OpenFGA API commit or tag to generate against (empty uses the Makefile pin)"
+        type: string
+        default: ""
+      generator_repo:
+        description: "Repository to take the generator from (empty uses this repository)"
+        type: string
+        default: ""
+      generator_ref:
+        description: "Generator branch, tag, SHA or refs/pull/N/head (empty uses the workflow ref)"
+        type: string
+        default: ""
+      change_id:
+        description: "SDK factory change id (uses branch sync/factory-<id> and a draft PR)"
+        type: string
+        default: ""
+      port_after:
+        description: "Start the factory port worker on each new sync PR (needs change_id)"
+        type: boolean
+        default: false
+      tracking_issue:
+        description: "SDK factory tracking issue number in this repository"
+        type: string
+        default: ""
 
 permissions:
   contents: read
 
 concurrency:
-  group: sync-sdks
+  group: sync-sdks-${{ github.ref }}-${{ inputs.change_id || 'default' }}-${{ inputs.sdk || 'all' }}
   cancel-in-progress: true
 
 env:
@@ -41,15 +78,29 @@ env:
 jobs:
   # On manual dispatch, narrow the matrix to the selected SDK.
   prepare:
+    if: github.event_name != 'push' || vars.FACTORY_SKIP_PUSH_SYNC != 'true'
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set.outputs.matrix }}
     steps:
+      - name: Checkout SDK registry
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: factory/sdks.yaml
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
       - name: Compute matrix
         id: set
         env:
           SELECTED: ${{ github.event_name == 'workflow_dispatch' && inputs.sdk || 'all' }}
+          VAR_OVERRIDES: ${{ vars.SDK_REPO_OVERRIDES || '{}' }}
         run: |
+          OVERRIDES="$VAR_OVERRIDES"
+          if [[ -f factory/sdks.yaml ]]; then
+            REGISTRY=$(yq -o=json -I=0 '.sdks | map_values(.repo)' factory/sdks.yaml)
+            OVERRIDES=$(jq -cn --argjson a "$REGISTRY" --argjson b "$VAR_OVERRIDES" '$a + $b')
+          fi
           ALL='[
             {"language":"js","repo":"js-sdk","make_target":"test-client-js"},
             {"language":"go","repo":"go-sdk","make_target":"test-client-go"},
@@ -57,6 +108,7 @@ jobs:
             {"language":"python","repo":"python-sdk","make_target":"test-client-python"},
             {"language":"java","repo":"java-sdk","make_target":"test-client-java"}
           ]'
+          ALL=$(jq -c --argjson o "$OVERRIDES" '[ .[] | .repo = ($o[.language] // .repo) ]' <<<"$ALL")
 
           if [[ "$SELECTED" == "all" ]]; then
             MATRIX=$(jq -c . <<<"$ALL")
@@ -70,6 +122,14 @@ jobs:
   sync:
     needs: prepare
     runs-on: ubuntu-latest
+    env:
+      HAS_APP: ${{ secrets.RELEASER_APP_CLIENT_ID != '' }}
+      HAS_GPG: ${{ secrets.GPG_PRIVATE_KEY != '' }}
+      CHANGE_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.change_id || '' }}
+      GENERATOR_REPO: ${{ github.event_name == 'workflow_dispatch' && inputs.generator_repo || '' }}
+      GENERATOR_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.generator_ref || '' }}
+      PORT_AFTER: ${{ github.event_name == 'workflow_dispatch' && inputs.change_id != '' && inputs.port_after }}
+      TRACKING_ISSUE: ${{ github.event_name == 'workflow_dispatch' && inputs.tracking_issue || '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -80,6 +140,9 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          repository: ${{ env.GENERATOR_REPO || github.repository }}
+          ref: ${{ env.GENERATOR_REF || (env.GENERATOR_REPO == '' && github.sha || '') }}
+          persist-credentials: false
 
       # No token needed to clone (public repos). Credentials are not persisted
       # so the push below uses the app token.
@@ -97,13 +160,15 @@ jobs:
         with:
           python-version: "3.10"
 
+      # No dependency cache. This job holds push credentials, and the factory
+      # verify job runs SDK pull request code in the same cache scope, so a
+      # restored cache could carry code into this job.
       - name: Set up JDK
         if: matrix.language == 'java'
         uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           java-version: 11
           distribution: "temurin"
-          cache: "gradle"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
@@ -139,7 +204,7 @@ jobs:
 
       # Minted after the build since app tokens expire after 1 hour.
       - name: Generate token
-        if: steps.diff.outputs.dirty == 'true'
+        if: steps.diff.outputs.dirty == 'true' && env.HAS_APP == 'true'
         id: app-token
         uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         with:
@@ -155,7 +220,10 @@ jobs:
         if: steps.diff.outputs.dirty == 'true'
         id: branch
         run: |
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+          if [[ -n "$CHANGE_ID" ]]; then
+            echo "name=sync/factory-${CHANGE_ID}" >> "$GITHUB_OUTPUT"
+            echo "draft=true" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
             echo "name=$SYNC_BRANCH" >> "$GITHUB_OUTPUT"
             echo "draft=false" >> "$GITHUB_OUTPUT"
           else
@@ -165,7 +233,7 @@ jobs:
           fi
 
       - name: Import GPG key
-        if: steps.diff.outputs.dirty == 'true'
+        if: steps.diff.outputs.dirty == 'true' && env.HAS_GPG == 'true'
         id: import-gpg
         uses: crazy-max/ghaction-import-gpg@2dc316deee8e90f13e1a351ab510b4d5bc0c82cd # v7.0.0
         with:
@@ -179,26 +247,43 @@ jobs:
         if: steps.diff.outputs.dirty == 'true'
         working-directory: clients/fga-${{ matrix.language }}-sdk
         env:
-          PUSH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PUSH_TOKEN: ${{ steps.app-token.outputs.token || secrets.FACTORY_TOKEN }}
           SDK_REPO: ${{ github.repository_owner }}/${{ matrix.repo }}
           BRANCH: ${{ steps.branch.outputs.name }}
+          GPG_EMAIL: ${{ steps.import-gpg.outputs.email }}
         run: |
-          git config user.name openfga-releaser-bot
-          git config user.email "${{ steps.import-gpg.outputs.email }}"
+          if [[ -z "$PUSH_TOKEN" ]]; then
+            echo "::error::No push token. Set the RELEASER_APP_* secrets or FACTORY_TOKEN."
+            exit 1
+          fi
+          if [[ -n "$GPG_EMAIL" ]]; then
+            git config user.name openfga-releaser-bot
+            git config user.email "$GPG_EMAIL"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          fi
+
+          TRAILERS=()
+          if [[ -n "$CHANGE_ID" ]]; then
+            TRAILERS=(-m "SDK-Factory-Change: ${CHANGE_ID}")
+          fi
 
           git checkout -B "$BRANCH"
           git add -A
           git commit -m "$PR_TITLE" \
-            -m "Generated from ${{ github.repository }}@${{ github.sha }}"
+            -m "Generated from ${{ github.repository }}@${{ github.sha }}" \
+            "${TRAILERS[@]}"
           git push --force \
             "https://x-access-token:${PUSH_TOKEN}@github.com/${SDK_REPO}.git" \
             "$BRANCH"
 
       - name: Create or update pull request
         if: steps.diff.outputs.dirty == 'true'
+        id: pr
         working-directory: clients/fga-${{ matrix.language }}-sdk
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.FACTORY_TOKEN }}
           SDK_REPO: ${{ github.repository_owner }}/${{ matrix.repo }}
           BRANCH: ${{ steps.branch.outputs.name }}
           DRAFT: ${{ steps.branch.outputs.draft }}
@@ -214,7 +299,26 @@ jobs:
           Generated against OpenFGA API ref [\`${OPENAPI_REF}\`](${{ github.server_url }}/openfga/api/tree/${OPENAPI_REF})."
           fi
 
-          if [[ "$DRAFT" == "true" ]]; then
+          if [[ -n "$GENERATOR_REF" || -n "$GENERATOR_REPO" ]]; then
+            BODY="$BODY
+
+          Generator source: \`${GENERATOR_REPO:-${{ github.repository }}}\` at \`${GENERATOR_REF:-${{ github.ref_name }}}\`."
+          fi
+
+          if [[ -n "$CHANGE_ID" ]]; then
+            BODY="$BODY
+
+          > [!NOTE]
+          > SDK factory preview for change \`${CHANGE_ID}\`. A maintainer reviews it before it leaves draft."
+            if [[ "$TRACKING_ISSUE" =~ ^[0-9]+$ ]]; then
+              BODY="$BODY
+
+          Tracking: ${{ github.repository }}#${TRACKING_ISSUE}"
+            fi
+            BODY="$BODY
+
+          SDK-Factory-Change: ${CHANGE_ID}"
+          elif [[ "$DRAFT" == "true" ]]; then
             BODY="$BODY
 
           > [!WARNING]
@@ -256,6 +360,7 @@ jobs:
             PR_NUMBER="${PR_URL##*/}"
             echo "Created sync PR #$PR_NUMBER"
           fi
+          echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
 
           # Best-effort labeling, don't fail the sync over it
           gh label create "$PR_LABEL" \
@@ -266,6 +371,31 @@ jobs:
           gh pr edit "$PR_NUMBER" \
             --repo "$SDK_REPO" \
             --add-label "$PR_LABEL" 2>/dev/null || true
+          if [[ -n "$CHANGE_ID" ]]; then
+            gh pr edit "$PR_NUMBER" \
+              --repo "$SDK_REPO" \
+              --add-label factory 2>/dev/null || true
+          fi
+
+      - name: Record sync PR for the port worker
+        if: steps.pr.outputs.number != '' && env.PORT_AFTER == 'true'
+        env:
+          SDK_REPO: ${{ github.repository_owner }}/${{ matrix.repo }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          BRANCH: ${{ steps.branch.outputs.name }}
+          SDK: ${{ matrix.language }}
+        run: |
+          mkdir -p factory-port
+          jq -n --arg sdk "$SDK" --arg repo "$SDK_REPO" --arg pr "$PR_NUMBER" --arg branch "$BRANCH" \
+            '{sdk: $sdk, repo: $repo, pr: $pr, branch: $branch}' > "factory-port/${SDK}.json"
+
+      - name: Upload sync PR record
+        if: steps.pr.outputs.number != '' && env.PORT_AFTER == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: factory-port-${{ matrix.language }}
+          path: factory-port/
+          retention-days: 1
 
       - name: Summary
         if: always()
@@ -278,10 +408,45 @@ jobs:
             echo "### \`${{ matrix.repo }}\`: in sync, nothing to do" >> "$GITHUB_STEP_SUMMARY"
           fi
 
+  # Runs no SDK code, so it can hold actions: write. The sync job never does.
+  port:
+    needs: sync
+    if: always() && github.event_name == 'workflow_dispatch' && inputs.change_id != '' && inputs.port_after && vars.FACTORY_PAUSED != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Download sync PR records
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          pattern: factory-port-*
+          merge-multiple: true
+          path: factory-port
 
-
-
-
-
-
-
+      - name: Start port workers
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHANGE_ID: ${{ inputs.change_id }}
+          TRACKING_ISSUE: ${{ inputs.tracking_issue }}
+        run: |
+          shopt -s nullglob
+          files=(factory-port/*.json)
+          if [[ ${#files[@]} -eq 0 ]]; then
+            echo "No new sync PRs, so no port workers to start." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          for f in "${files[@]}"; do
+            sdk=$(jq -r .sdk "$f"); repo=$(jq -r .repo "$f")
+            pr=$(jq -r .pr "$f"); branch=$(jq -r .branch "$f")
+            gh workflow run factory-port.lock.yml \
+              --repo "$GITHUB_REPOSITORY" \
+              --ref "$GITHUB_REF_NAME" \
+              -f sdk="$sdk" \
+              -f target_repo="$repo" \
+              -f source="${repo}/pull/${pr}" \
+              -f change_id="$CHANGE_ID" \
+              -f base_branch="$branch" \
+              -f tracking_issue="$TRACKING_ISSUE"
+            echo "- ${sdk}: port worker started for \`${repo}/pull/${pr}\` on \`${branch}\`" >> "$GITHUB_STEP_SUMMARY"
+          done

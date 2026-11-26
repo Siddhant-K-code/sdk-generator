@@ -1,6 +1,6 @@
 # OpenFGA Go SDK Context
 
-> Factory worker context for `openfga/go-sdk` (adapted from `openfga/go-sdk#288`: `AGENTS.md` and `.claude/rules/*`).
+> Factory worker context for `openfga/go-sdk` (adapted from `openfga/go-sdk/pull/288`: `AGENTS.md` and `.claude/rules/*`).
 
 ## Stack & Verification
 
@@ -15,8 +15,8 @@
 Check `.openapi-generator/FILES` (192 entries) before editing any file. Never edit generated files by hand in an SDK PR; route those changes to `sdk-generator` (`config/clients/go/template/`).
 
 - **Generated (do not hand-edit):**
-  - `model_*.go` (API data models; excluded from `golangci-lint` in `.golangci.yaml` — keep that exclusion)
-  - `api_open_fga.go` (low-level generated API — deprecated in favor of hand-written `api_executor.go`)
+  - `model_*.go` (API data models; excluded from `golangci-lint` in `.golangci.yaml`; keep that exclusion)
+  - `api_open_fga.go` (low-level generated API; deprecated in favor of hand-written `api_executor.go`)
   - `internal/constants/constants.go` (shared SDK constants: batch limits, retry defaults, token buffers)
   - `streaming_test.go`, `docs/**`, `README.md`, `CONTRIBUTING.md`, `VERSION.txt`
 - **Ignored in `.openapi-generator-ignore` (hand-maintained):** `client.go`, `utils.go`, `configuration.go`, `response.go`, `go.mod`, `api_client.go`, `api/openapi.yaml`, `test/api_open_fga_test.go`.
@@ -46,7 +46,7 @@ Check `.openapi-generator/FILES` (192 entries) before editing any file. Never ed
    - Do not overwrite `grant_type` or core OAuth parameters unexpectedly; preserve `baseClient` wrapping so custom `Timeout`/`Transport` apply to token calls.
    - Keep OAuth2 token refresh thread-safe and preserve the 300s expiry threshold + 300s jitter (`internal/constants/constants.go`).
 4. **Security:** Never log or interpolate secrets/tokens into error strings or debug output.
-5. **Tests:** Note `credentials/` currently has no `credentials_test.go` — credential tests live in `api_client_test.go` (or add a new `credentials/credentials_test.go`), plus `oauth2/clientcredentials/clientcredentials_test.go`. Use table-driven subtests, `t.Parallel()` at both top level and inside `t.Run()`, `require`/`assert`, and `httpmock` (no live network, no `time.Sleep`, no wall-clock expiry assertions).
+5. **Tests:** Note `credentials/` currently has no `credentials_test.go`; credential tests live in `api_client_test.go` (or add a new `credentials/credentials_test.go`), plus `oauth2/clientcredentials/clientcredentials_test.go`. Use table-driven subtests, `t.Parallel()` at both top level and inside `t.Run()`, `require`/`assert`, and `httpmock` (no live network, no `time.Sleep`, no wall-clock expiry assertions).
 
 ## Idioms & Guardrails
 
@@ -60,6 +60,6 @@ Check `.openapi-generator/FILES` (192 entries) before editing any file. Never ed
 
 ## PR Rules
 
-- **PR title:** Conventional Commits (`feat`, `fix`, `docs`, `test`, `refactor`, `ci`, `perf`, `chore`, `revert`, `release`, optional scope). Do **not** add a title prefix — factory PRs carry the `factory` label.
+- **PR title:** Conventional Commits (`feat`, `fix`, `docs`, `test`, `refactor`, `ci`, `perf`, `chore`, `revert`, `release`, optional scope). Do **not** add a title prefix; factory PRs carry the `factory` label.
 - **Do not edit:** `CHANGELOG.md`, `.release-please-manifest.json`, `release-please-config.json`, or any generated file in `.openapi-generator/FILES`.
 - **Generated changes:** Route to `sdk-generator` (`config/clients/go/template/`), never hand-patch in `go-sdk`.

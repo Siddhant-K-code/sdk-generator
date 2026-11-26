@@ -1,0 +1,18 @@
+# Read by the verify job (factory/scripts/factory_verify.py). README.md explains
+# the cases and the evidence.
+source: openfga/js-sdk/pull/228
+
+# On the PR base, every failing case prints this text. A base run that passes,
+# or fails without it, means the pack or the base is wrong.
+base_failure_pattern: option missing
+
+# Cases that pass on the base and must keep passing on the head.
+preserve: [default, denied]
+
+# Where each runner copies its tests. The verify job rejects a PR that touches
+# these paths.
+fixed_paths:
+  python: test/factory_acceptance/
+  go: factoryacceptance/customclaims/
+  java: src/test/java/dev/openfga/sdk/factoryacceptance/
+  dotnet: src/OpenFga.Sdk.Test/FactoryAcceptance/

@@ -1,7 +1,7 @@
 # Acceptance pack: custom token-request fields (`customClaims`)
 
 This pack holds black-box acceptance tests for porting
-[openfga/js-sdk#228](https://github.com/openfga/js-sdk/pull/228) (custom
+`openfga/js-sdk/pull/228` (custom
 token-request fields on the client-credentials flow) to the Go, Python, Java and
 .NET SDKs. [`contract.md`](contract.md) defines the per-SDK option name, the
 required behaviour and the cases.

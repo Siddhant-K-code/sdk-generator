@@ -1,0 +1,81 @@
+name: 🏭 SDK factory change
+description: Propagate one change across the OpenFGA SDK forks (maintainers only)
+title: "factory: "
+labels: ["factory:propagate"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Opening this issue starts the SDK factory router. It posts a plan as a comment, then starts the workers. Only users with write access can start it.
+
+        Write the source without `https://github.com/`, for example `openfga/js-sdk/pull/228`. A full URL also works, but it adds a "mentioned" event to the upstream thread.
+
+  - type: dropdown
+    id: lane
+    attributes:
+      label: Lane
+      description: "B ports a hand-written change with an agent. A and C regenerate the SDKs without an agent."
+      options:
+        - "B: port an SDK change"
+        - "A: API spec bump"
+        - "C: generator template change"
+      default: 0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind of change
+      description: "Sets which SDKs the change reaches when Target SDKs is empty. See `reach` in factory/sdks.yaml."
+      options:
+        - "Baseline behavior: auth, retries, rate limits, streaming, headers or raw requests"
+        - "Core API wrapper: Check, Write, Read, ListObjects or ListUsers"
+        - "Other API wrapper"
+        - "Fix or internal change: no new public API"
+    validations:
+      required: true
+
+  - type: input
+    id: source
+    attributes:
+      label: Source
+      description: "B: an SDK PR, commit or issue. A: an openfga/api commit, PR or tree/<ref>. C: a generator PR, commit or tree/<branch>, in this repository or openfga/sdk-generator."
+      placeholder: openfga/js-sdk/pull/228
+    validations:
+      required: true
+
+  - type: input
+    id: change-id
+    attributes:
+      label: Change id
+      description: "Short kebab-case id. It names the branches and picks the acceptance pack in factory/acceptance/<id>/. Leave empty to derive one from the source."
+      placeholder: custom-claims
+
+  - type: dropdown
+    id: targets
+    attributes:
+      label: Target SDKs
+      description: Leave empty for every SDK in reach except the source SDK. SDKs picked here always run.
+      multiple: true
+      options:
+        - js
+        - go
+        - python
+        - java
+        - dotnet
+
+  - type: checkboxes
+    id: options
+    attributes:
+      label: Options
+      options:
+        - label: Plan only. Post the plan but do not start workers.
+        - label: "Lanes A and C: also start a port worker on each sync PR for the hand-written layer."
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Extra guidance for the lane B workers, for example naming decisions.

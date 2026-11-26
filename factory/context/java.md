@@ -1,6 +1,6 @@
 # OpenFGA Java SDK Context
 
-> Factory worker context for `openfga/java-sdk` (conventions adapted from `openfga/go-sdk#288` `AGENTS.md`/`.claude/rules/*` and verified against `java-sdk`).
+> Factory worker context for `openfga/java-sdk` (conventions adapted from `openfga/go-sdk/pull/288` `AGENTS.md`/`.claude/rules/*` and verified against `java-sdk`).
 
 ## Stack & Verification
 
@@ -42,9 +42,9 @@ Check `.openapi-generator/FILES` (193 entries) before editing. Never edit genera
    - **Quirk:** `Credentials.assertValid()` only checks `clientCredentials != null` and does **not** currently invoke `clientCredentials.assertValid()`. Keep `ClientCredentials.assertValid()` accurate and tested.
 2. **Token request payload (`api/auth/CredentialsFlowRequest.java`):** Add a `*_PARAM_NAME` constant and setter populating `this.parameters` (null entries are filtered out in `buildFormRequestBody()`). Never allow callers to clobber `client_id`, `client_secret`, or `grant_type`.
 3. **OAuth2 wiring (`api/auth/OAuth2Client.java`):** Pass `clientCredentials.getMyOption()` to `this.authRequest` in the `OAuth2Client` constructor. Preserve lock-free `AtomicReference<AccessToken>` reads, synchronized in-flight `CompletableFuture` deduplication, and `AccessToken` expiry threshold + jitter.
-4. **Cache key (`api/client/ApiClient.java` — easy to miss!):** `ApiClient` caches `OAuth2Client` instances in `oAuth2Clients` keyed by `CredentialsCacheKey`. Add the new option to `CredentialsCacheKey` (field, constructor, `equals`, `hashCode` — SHA-256 hash if sensitive) so distinct configs do not share a cached token.
+4. **Cache key (`api/client/ApiClient.java`, easy to miss!):** `ApiClient` caches `OAuth2Client` instances in `oAuth2Clients` keyed by `CredentialsCacheKey`. Add the new option to `CredentialsCacheKey` (field, constructor, `equals`, `hashCode`; SHA-256 hash if sensitive) so distinct configs do not share a cached token.
 5. **Security & telemetry:** Never log secrets/tokens in exceptions or body logs; keep `telemetry.metrics().credentialsRequest(...)` intact.
-6. **Tests:** Update `src/test/java/dev/openfga/sdk/api/configuration/ClientCredentialsTest.java`, `api/auth/OAuth2ClientTest.java`, and `api/client/ApiClientTest.java` (verify cache isolation) using JUnit 5 + Mockito / WireMock / `HttpClientMock` — no live network calls.
+6. **Tests:** Update `src/test/java/dev/openfga/sdk/api/configuration/ClientCredentialsTest.java`, `api/auth/OAuth2ClientTest.java`, and `api/client/ApiClientTest.java` (verify cache isolation) using JUnit 5 + Mockito / WireMock / `HttpClientMock`; no live network calls.
 
 ## Idioms & Guardrails
 
@@ -56,6 +56,6 @@ Check `.openapi-generator/FILES` (193 entries) before editing. Never edit genera
 
 ## PR Rules
 
-- **PR title:** Conventional Commits (`feat`, `fix`, `docs`, `test`, `refactor`, `ci`, `perf`, `chore`, `revert`, `release`, optional scope). Do **not** add a title prefix — factory PRs carry the `factory` label.
+- **PR title:** Conventional Commits (`feat`, `fix`, `docs`, `test`, `refactor`, `ci`, `perf`, `chore`, `revert`, `release`, optional scope). Do **not** add a title prefix; factory PRs carry the `factory` label.
 - **Do not edit:** `CHANGELOG.md`, `.release-please-manifest.json`, `release-please-config.json`, `version = '...' // x-release-please-version` in `build.gradle`, or generated files in `.openapi-generator/FILES`.
 - **Generated changes:** Route to `sdk-generator` (`config/clients/java/template/`), never hand-patch in `java-sdk`.

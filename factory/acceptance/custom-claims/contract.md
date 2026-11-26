@@ -2,7 +2,7 @@
 
 ## Source and scope
 
-- **Source change:** [openfga/js-sdk#228](https://github.com/openfga/js-sdk/pull/228).
+- **Source change:** `openfga/js-sdk/pull/228`.
   The JS SDK added `credentials.config.customClaims?: Record<string, string>`.
   `credentials.ts` spreads `customClaims` into the token form first and then sets
   `client_id`, `client_secret`, `audience` and `grant_type`.
@@ -93,10 +93,10 @@ Every successful case checks `user:anne` (allowed) and then `user:bob`
 
 | Case | Kind | `customClaims` | Other configuration | Expected extra token fields |
 |---|---|---|---|---|
-| `default` | preserve | unset | – | none |
-| `empty` | change | `{}` | – | none |
-| `custom` | change | `{organization: ORG, scope: "read:tuples"}` | – | `organization=ORG`, `scope=read:tuples` |
-| `reserved` | change | `{organization: ORG, client_id: "wrong", client_secret: "wrong", grant_type: "wrong", audience: "wrong"}` | – | `organization=ORG`; canonical values for the reserved keys |
+| `default` | preserve | unset | none | none |
+| `empty` | change | `{}` | none | none |
+| `custom` | change | `{organization: ORG, scope: "read:tuples"}` | none | `organization=ORG`, `scope=read:tuples` |
+| `reserved` | change | `{organization: ORG, client_id: "wrong", client_secret: "wrong", grant_type: "wrong", audience: "wrong"}` | none | `organization=ORG`; canonical values for the reserved keys |
 | `denied` | preserve | unset | token endpoint returns `401` | none; the check errors with `401`; 0 API requests |
 | `scopes` | change | as `custom` | scopes `write:tuples list:objects` | `organization=ORG`, `scope=write:tuples list:objects` |
 | `empty-scopes` | change | as `custom` | scopes `""` | `organization=ORG`, `scope=read:tuples` |
