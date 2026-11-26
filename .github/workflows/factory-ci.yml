@@ -11,6 +11,7 @@ on:
       - ".github/workflows/sync-sdks.yaml"
       - ".github/ISSUE_TEMPLATE/factory-*"
       - ".github/aw/**"
+      - "config/common/openapi-compat.jq"
   push:
     branches: [main]
     paths:
@@ -19,6 +20,7 @@ on:
       - ".github/workflows/sync-sdks.yaml"
       - ".github/ISSUE_TEMPLATE/factory-*"
       - ".github/aw/**"
+      - "config/common/openapi-compat.jq"
   workflow_dispatch:
 
 permissions: {}
