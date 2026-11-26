@@ -61,8 +61,8 @@ registry. A new language also needs toolchain setup steps in the worker and in
    URL also works, but it adds a "mentioned" event to the upstream thread.
 4. Leave **Target SDKs** empty to reach every SDK in reach for that kind,
    minus the source SDK. SDKs you pick always run.
-5. Tick **Plan only** the first time. The router posts the plan as a comment
-   and starts nothing.
+5. Tick **Plan only** the first time. The router posts the plan as a comment,
+   lists any missing secrets, and starts nothing.
 6. To run it, edit the issue, untick **Plan only**, then remove and re-add the
    `factory:propagate` label.
 
