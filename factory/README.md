@@ -301,8 +301,13 @@ You need `gh`, signed in as the owner of the hub and the forks, and
    Actions** page also work. gh-aw's keyless option,
    `permissions: copilot-requests: write`, needs a repository that an
    organization owns and pays for, so this lab uses the token.
-5. Run `gh aw doctor --repo <owner>/<hub>` and the fork sync, then open a
-   plan-only issue. The plan lists any missing secret.
+5. Check the secrets. `gh aw secrets bootstrap --non-interactive --repo
+   <owner>/<hub>` checks `COPILOT_GITHUB_TOKEN`. `gh aw doctor`, run in a
+   checkout of the hub, checks `FACTORY_TOKEN`; with `--repo` it only checks
+   that the repository exists. Neither can see a token's permissions or
+   expiry.
+6. Run the fork sync, then open a plan-only issue. The plan lists any missing
+   secret.
 
 ### Repository variables
 

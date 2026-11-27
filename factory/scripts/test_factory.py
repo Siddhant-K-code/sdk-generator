@@ -402,6 +402,31 @@ class RetryTest(RouteCase):
         self.assertEqual(self.route(gh), 0)
         self.assertEqual(len(gh.dispatches()), 2)
 
+    def test_stopped_run_with_a_failed_edit_can_be_retried_without_force(self):
+        responses = self.lane_b()
+        responses[("POST", f"repos/{HUB}/actions/workflows/{route.PORT_WORKFLOW}/dispatches")] = ApiError("x", "HTTP 500: boom")
+        responses[("PATCH", f"repos/{HUB}/issues/comments/1000")] = ApiError("x", "HTTP 502: Bad Gateway")
+        gh = FakeGitHub(responses)
+
+        self.assertEqual(self.route(gh), 1)
+
+        placeholder, comment = gh.comments()
+        self.assertIn(route.TRACKING_MARKER.format("dispatched"), placeholder)
+        self.assertTrue(comment.startswith(route.TRACKING_MARKER.format("stopped") + "\n" + route.SUPERSEDES_MARKER.format(1000) + "\n"))
+
+        # Only the factory's own stopped comment releases the placeholder.
+        for author, dispatches in [("github-actions[bot]", 1), ("maintainer", 0)]:
+            with self.subTest(author=author):
+                retry = self.lane_b()
+                retry[("GET", f"repos/{HUB}/issues/7/comments")] = [
+                    {"id": 1000, "user": {"login": "github-actions[bot]"}, "body": placeholder},
+                    {"id": 1001, "user": {"login": author}, "body": comment},
+                ]
+                gh = FakeGitHub(retry)
+
+                self.assertEqual(self.route(gh), 0)
+                self.assertEqual(len(gh.dispatches()), dispatches)
+
     def test_open_port_pr_blocks_a_second_worker_even_with_force(self):
         responses = self.lane_b("go, python, java")
         go_prs = "https://github.com/lab/openfga-go-sdk/pull"

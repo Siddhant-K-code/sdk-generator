@@ -48,6 +48,9 @@ PORT_WORKFLOW = "factory-port.lock.yml"
 SYNC_WORKFLOW = "sync-sdks.yaml"
 API_VERSION = "2026-03-10"
 TRACKING_MARKER = "<!-- factory:tracking mode={} -->"
+# The second line of a stopped run's comment. It names that run's placeholder, which stays as a
+# separate comment when the edit fails, so a retry does not mistake the placeholder for a started run.
+SUPERSEDES_MARKER = "<!-- factory:supersedes {} -->"
 ERROR_MARKER = "<!-- factory:route-error -->"
 NOTES_LIMIT = 4000
 LANE_KINDS = {
@@ -570,8 +573,11 @@ def acceptance_text(change_id: str, acceptance_root: Path) -> str:
     return f"`factory/acceptance/{change_id}/` with runners for {', '.join(runners) or 'no SDKs'}"
 
 
-def render(plan: Plan, mode: str, rows: list, hub_status: str, pack: str, setup: list, plan_only: bool) -> str:
-    lines = [TRACKING_MARKER.format(mode), f"### SDK factory {'plan' if mode == 'plan' else 'run'}", ""]
+def render(plan: Plan, mode: str, rows: list, hub_status: str, pack: str, setup: list, plan_only: bool, supersedes=None) -> str:
+    lines = [TRACKING_MARKER.format(mode)]
+    if supersedes:
+        lines.append(SUPERSEDES_MARKER.format(supersedes))
+    lines += [f"### SDK factory {'plan' if mode == 'plan' else 'run'}", ""]
     source_text = code(plan.source.path) + (f" ({plan.source_sdk})" if plan.source_sdk else "")
     change_text = code(plan.change_id) + (" (derived from the source)" if plan.derived_id else "")
     fields = [
@@ -708,11 +714,22 @@ def open_port_pr(gh, fork: str, change_id: str) -> str:
 
 
 def already_dispatched(gh, hub: str, number: int) -> bool:
-    marker = TRACKING_MARKER.format("dispatched")
-    comments = gh.api(f"repos/{hub}/issues/{number}/comments?per_page=100", paginate=True) or []
+    """True when an earlier router run started this change. A stopped run releases its own placeholder."""
+    marker, stopped = TRACKING_MARKER.format("dispatched"), TRACKING_MARKER.format("stopped")
+    comments = [
+        comment
+        for comment in gh.api(f"repos/{hub}/issues/{number}/comments?per_page=100", paginate=True) or []
+        if (comment.get("user") or {}).get("login") == BOT_LOGIN
+    ]
+    released = set()
+    for comment in comments:
+        lines = (comment.get("body") or "").splitlines()
+        if len(lines) > 1 and lines[0] == stopped:
+            match = re.fullmatch(SUPERSEDES_MARKER.format(r"(\d+)"), lines[1])
+            if match:
+                released.add(match.group(1))
     return any(
-        (comment.get("user") or {}).get("login") == BOT_LOGIN and marker in (comment.get("body") or "")
-        for comment in comments
+        marker in (comment.get("body") or "") and str(comment.get("id")) not in released for comment in comments
     )
 
 
@@ -784,7 +801,8 @@ def run(
             mode = "stopped"
 
     pack = acceptance_text(plan.change_id, acceptance_root)
-    post(gh, hub, number, render(plan, mode, rows, hub_status, pack, setup, req.plan_only), comment_id)
+    supersedes = comment_id if mode == "stopped" else None
+    post(gh, hub, number, render(plan, mode, rows, hub_status, pack, setup, req.plan_only, supersedes), comment_id)
     return 1 if failed else 0
 
 

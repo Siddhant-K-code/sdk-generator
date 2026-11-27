@@ -136,6 +136,7 @@ EOF
 fi
 
 step "Next"
-echo "gh aw doctor --repo $hub"
+echo "gh aw secrets bootstrap --non-interactive --repo $hub   # checks COPILOT_GITHUB_TOKEN"
+echo "gh aw doctor   # in a checkout of $hub: checks FACTORY_TOKEN"
 echo "gh workflow run factory-sync-forks.yml --repo $hub"
 echo "Then open https://github.com/$hub/issues/new/choose, pick \"SDK factory change\" and tick Plan only."
