@@ -64,10 +64,11 @@ KIND_WORDS = {"pull": "a pull request", "commit": "a commit", "issues": "an issu
 # The SDK choices of sync-sdks.yaml. A run with sdk=all covers exactly these.
 SYNC_SDKS = ("js", "go", "dotnet", "python", "java")
 RETRY = "Edit the issue, then remove and re-add the `factory:propagate` label."
-# Unmerged sources are untrusted input to jobs that hold FACTORY_TOKEN.
+WRITE_ROLES = ("admin", "maintain", "write")
+# Unmerged sources run in the sync job, which holds no token, and shape the draft PRs.
 UNREVIEWED = {
     "A": "Its spec reaches generated code and the SDK tests, so only run the factory on changes you have read.",
-    "C": "The sync job runs its templates and Makefile while `FACTORY_TOKEN` is available, so only run the factory on changes you have read.",
+    "C": "The sync job runs its templates and Makefile, and the draft PRs carry what they generate, so only run the factory on changes you have read.",
 }
 
 
@@ -271,10 +272,12 @@ def resolve_generator(gh, registry: dict, hub: str, plan: Plan) -> None:
         if pr.get("merged_at"):
             plan.sha = plan.generator_ref = pr["merge_commit_sha"]
         elif pr["state"] == "open":
-            plan.sha = pr["head"]["sha"]
-            plan.generator_ref = f"refs/pull/{plan.source.ref}/head"
-            plan.generator_label = f"refs/pull/{plan.source.ref}/head at {plan.sha[:7]}"
-            plan.warnings.append(f"The generator pull request is still open. {UNREVIEWED['C']}")
+            # Pinned, so a push to the pull request after this point never reaches the sync run.
+            plan.sha = plan.generator_ref = pr["head"]["sha"]
+            plan.generator_label = f"{code(plan.sha[:7])}, the pull request head when the router ran"
+            plan.warnings.append(
+                f"The generator pull request is still open, so the SDKs are generated from its head commit. {UNREVIEWED['C']}"
+            )
         else:
             raise FactoryError("The generator pull request was closed without merging.")
     else:
@@ -581,7 +584,7 @@ def render(plan: Plan, mode: str, rows: list, hub_status: str, pack: str, setup:
     if plan.lane == "A":
         fields.append(("API ref", code(plan.openapi_ref)))
     if plan.lane == "C":
-        fields.append(("Generator", f"{code(plan.generator_repo)} at {code(plan.generator_label or plan.generator_ref)}"))
+        fields.append(("Generator", f"{code(plan.generator_repo)} at {plan.generator_label or code(plan.generator_ref)}"))
     if plan.lane in ("A", "C"):
         fields.append(("Port worker after sync", "yes" if plan.port_after else "no"))
     if plan.model:
@@ -619,6 +622,10 @@ def render(plan: Plan, mode: str, rows: list, hub_status: str, pack: str, setup:
         lines.append("Setup needed before the factory can run:")
         lines += [f"- {item}" for item in setup]
         lines += ["", "Then remove and re-add the `factory:propagate` label."]
+    elif mode == "stopped":
+        lines.append(
+            "Nothing started. Fix the rows above, then remove and re-add the `factory:propagate` label. An SDK with an open port PR starts again only after that PR is closed."
+        )
     elif plan.lane == "B":
         lines.append(
             "Each worker opens a draft PR labelled `factory` in its fork and reports here. The verify job then runs the SDK checks and the acceptance pack on that PR."
@@ -640,12 +647,64 @@ def render_error(problems: list) -> str:
     return "\n".join(lines) + "\n"
 
 
-def post(gh, hub: str, number: int, body: str) -> None:
-    gh.api(f"repos/{hub}/issues/{number}/comments", method="POST", fields=[("body", body)])
-    summary = os.environ.get("GITHUB_STEP_SUMMARY")
-    if summary:
-        with open(summary, "a", encoding="utf-8") as handle:
+def render_starting() -> str:
+    repo, run_id = os.environ.get("GITHUB_REPOSITORY"), os.environ.get("GITHUB_RUN_ID")
+    run_link = f"[router run]({SERVER}/{repo}/actions/runs/{run_id})" if repo and run_id else "router run"
+    lines = [
+        TRACKING_MARKER.format("dispatched"),
+        "### SDK factory run",
+        "",
+        f"Starting. The {run_link} is syncing the forks and starting the workflows, then replaces this text with the plan and links.",
+        "",
+        "If this still says Starting after 15 minutes, read the router run, then run the `SDK factory router` workflow with this issue number and **force** set.",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def post(gh, hub: str, number: int, body: str, comment_id=None, summary: bool = True):
+    """Post a comment, or replace the one with comment_id. Returns the comment's id."""
+    written = False
+    if comment_id:
+        try:
+            gh.api(f"repos/{hub}/issues/comments/{comment_id}", method="PATCH", fields=[("body", body)])
+            written = True
+        except ApiError:
+            pass
+    if not written:
+        comment_id = (gh.api(f"repos/{hub}/issues/{number}/comments", method="POST", fields=[("body", body)]) or {}).get("id")
+    path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary and path:
+        with open(path, "a", encoding="utf-8") as handle:
             handle.write(body + "\n")
+    return comment_id
+
+
+def check_author(gh, hub: str, issue: dict) -> None:
+    """The router acts on the issue body, so its author needs write access like the label sender."""
+    login = (issue.get("user") or {}).get("login") or ""
+    if login == BOT_LOGIN:
+        return
+    role = None
+    if login:
+        try:
+            role = (gh.api(f"repos/{hub}/collaborators/{login}/permission") or {}).get("permission")
+        except ApiError:
+            role = None
+    if role not in WRITE_ROLES:
+        raise FactoryError(
+            f"The issue author {code(login or 'unknown')} does not have write access to this repository, so the factory does not act on this issue. A maintainer can copy the request into a new issue."
+        )
+
+
+def open_port_pr(gh, fork: str, change_id: str) -> str:
+    """Link to the fork's open port PR for this change, or empty. Raises ApiError."""
+    head = re.compile(rf"sdk-factory/{re.escape(change_id)}(-[0-9a-f]{{16}})?")
+    for pull in gh.api(f"repos/{fork}/pulls?state=open&per_page=100", paginate=True) or []:
+        head_info = pull.get("head") or {}
+        same_repo = ((head_info.get("repo") or {}).get("full_name") or "").lower() == fork.lower()
+        if same_repo and head.fullmatch(head_info.get("ref") or ""):
+            return pull.get("html_url") or f"{SERVER}/{fork}/pulls"
+    return ""
 
 
 def already_dispatched(gh, hub: str, number: int) -> bool:
@@ -674,6 +733,7 @@ def run(
     reach, reach_warnings = load_reach(registry, reach_override)
     models, model_warnings = load_models(registry, models_override)
     try:
+        check_author(gh, hub, issue)
         req = parse_request(issue.get("body") or "", registry)
         plan = resolve(gh, registry, hub, req, number, reach)
     except FactoryError as err:
@@ -702,6 +762,9 @@ def run(
         )
         return 0
 
+    # Posted before anything starts, so a second router run sees this one.
+    comment_id = post(gh, hub, number, render_starting(), summary=False) if mode == "dispatched" else None
+
     # In plan mode this only reads how far behind each fork is.
     owner, apply = hub.split("/")[0], mode == "dispatched"
     hub_status, _ = fork_sync(gh, registry["generator"]["upstream"], hub, factory_token, apply=apply)
@@ -716,9 +779,12 @@ def run(
     if mode == "dispatched":
         ref = (gh.api(f"repos/{hub}") or {}).get("default_branch") or "main"
         failed = start(gh, hub, ref, number, plan, req, rows)
+        # Without the dispatched marker, the label can start it again without force.
+        if not any(row.run.startswith("[started]") for row in rows):
+            mode = "stopped"
 
     pack = acceptance_text(plan.change_id, acceptance_root)
-    post(gh, hub, number, render(plan, mode, rows, hub_status, pack, setup, req.plan_only))
+    post(gh, hub, number, render(plan, mode, rows, hub_status, pack, setup, req.plan_only), comment_id)
     return 1 if failed else 0
 
 
@@ -731,6 +797,15 @@ def start(gh, hub: str, ref: str, number: int, plan: Plan, req: Request, rows: l
     ready = [row for row in rows if row.ready]
     if plan.lane == "B":
         for row in ready:
+            # One open port PR per change and SDK, even with force.
+            try:
+                open_pr = open_port_pr(gh, row.fork, plan.change_id)
+            except ApiError as err:
+                row.run, failed = f"skipped: could not list open PRs (HTTP {err.status or '?'})", True
+                continue
+            if open_pr:
+                row.run = f"skipped: [open PR]({open_pr})"
+                continue
             inputs = {
                 "sdk": row.sdk,
                 "target_repo": row.fork,

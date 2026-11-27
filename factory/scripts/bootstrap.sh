@@ -52,6 +52,15 @@ gh api -X PUT "repos/$hub/actions/permissions/workflow" \
 gh variable set FACTORY_SKIP_PUSH_SYNC --repo "$hub" --body true >/dev/null
 echo "$hub: issues on, Actions on, read-only default token, FACTORY_SKIP_PUSH_SYNC=true"
 
+# Factory branches run each fork's CI on generated code, so jobs there that
+# ask for no permissions get a read-only token.
+step "Fork settings"
+for fork in "${forks[@]}"; do
+  gh api -X PUT "repos/$fork/actions/permissions/workflow" \
+    -f default_workflow_permissions=read -F can_approve_pull_request_reviews=false >/dev/null
+  echo "$fork: read-only default token"
+done
+
 label() {
   gh label create "$2" --repo "$1" --color "$3" --description "$4" --force >/dev/null
 }

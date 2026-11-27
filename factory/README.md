@@ -43,13 +43,21 @@ does this. Some build steps run in Docker as root and leave files the runner
 cannot write, so before the second build the script writes those files again
 from main. A sync run without a change id still regenerates the whole SDK.
 
+The sync job runs the generator, its Makefile and each SDK's tests. They can
+come from an unmerged pull request, so that job gets no token or secret. It
+saves each SDK's change as a patch. A second job, publish, holds the push
+token and runs none of that code. It checks that the patch starts from a
+commit on the SDK's main and leaves `.github/workflows` and `.github/actions`
+as main has them. Then it commits the patch with Git hooks off, pushes the
+sync branch and opens or updates the draft PR.
+
 ## Workflows
 
 | Workflow | File | Trigger | What it does |
 |---|---|---|---|
-| SDK factory router | `factory-propagate.yml` | The `factory:propagate` label, or a manual run with an issue number | Checks that the sender can write here, posts the plan, syncs the target forks and starts the lane |
-| SDK factory port worker | `factory-port.md`, compiled to `factory-port.lock.yml` | Started by the router or by the sync job | Ports one change into one fork and opens one draft PR |
-| Sync SDKs with generator | `sync-sdks.yaml` | A manual run, or a push to main | Regenerates the SDKs. The factory adds a change id, delta mode, a record of the sync PRs and an optional port step |
+| SDK factory router | `factory-propagate.yml` | The `factory:propagate` label, or a manual run with an issue number | Checks that the sender and the issue author can write here, posts the plan, syncs the target forks and starts the lane |
+| SDK factory port worker | `factory-port.md`, compiled to `factory-port.lock.yml` | Started by the router or by the sync job | Ports one change into one fork and opens one draft PR. It stops early when the fork already has an open port PR for the change |
+| Sync SDKs with generator | `sync-sdks.yaml` | A manual run, or a push to main | Regenerates the SDKs in a job without secrets. A publish job then checks each patch and opens the sync PR. The factory adds a change id, delta mode, a record of the sync PRs and an optional port step |
 | SDK factory verify | `factory-verify.yml` | After a worker or sync run, every 6 hours, or a manual run | Runs the checks and the acceptance pack on each open factory PR, labels it and reports |
 | SDK factory trace | `factory-trace.yml` | After each port worker run, or a manual run with a run id | Reads the run's session log with agent-strace and comments the agent's evidence on each PR the run opened |
 | SDK factory watcher | `factory-watch.yml` | Daily, or a manual run (a dry run by default) | Opens a `factory:candidate` issue for each feat or fix PR merged upstream that no factory issue covers |
@@ -63,12 +71,14 @@ issue form's Target SDKs list, in the worker's `sdk` input (then run
 `gh aw compile`), in `SYNC_SDKS` in `factory_route.py` and in the matrix of
 `sync-sdks.yaml`. `test_factory.py` fails until these lists match the
 registry. A new language also needs toolchain setup steps in the worker and in
-`factory-verify.yml`. Then run `bootstrap.sh` again to label the new fork.
+`factory-verify.yml`. Then run `bootstrap.sh` again to label the new fork and
+make its default token read-only.
 
 ## Start a change
 
 1. Open an issue with the **SDK factory change** form. Only people with write
-   access to the hub can start the router.
+   access to the hub can start the router. It acts only on issues that such
+   a person wrote, or that the factory's scanners opened.
 2. Pick the lane and the kind of change. Leave **Model** on Auto unless the
    change needs a stronger or a cheaper model.
 3. Write the source as a path, for example `openfga/js-sdk/pull/228`. A full
@@ -79,6 +89,12 @@ registry. A new language also needs toolchain setup steps in the worker and in
    lists any missing secrets, and starts nothing.
 6. To run it, edit the issue, untick **Plan only**, then remove and re-add the
    `factory:propagate` label.
+
+When the router starts work, it first posts a comment that says "Starting."
+It then edits that comment into the plan, with a link to each workflow it
+started. If the comment still says "Starting." after 15 minutes, the router
+stopped part way. Read the router run that the comment links, then start the
+issue again with force.
 
 The router also runs in plan mode while `FACTORY_TOKEN` is missing, and for
 lane B while `COPILOT_GITHUB_TOKEN` is missing. The plan says which secret to
@@ -97,6 +113,24 @@ gh workflow run factory-port.lock.yml --repo <owner>/<hub> \
   -f sdk=go -f target_repo=<owner>/openfga-go-sdk \
   -f source=openfga/js-sdk/pull/228 -f change_id=custom-claims
 ```
+
+### Retries and duplicates
+
+A change gets at most one open port PR in each fork. Before the router or the
+sync job starts a port worker, it looks in the fork for an open PR from a
+`sdk-factory/<change id>` branch. gh-aw may add a suffix to that name. If it
+finds one, it skips that SDK and links the PR. A worker checks again before
+its agent starts, because a second worker for the same change and SDK waits
+for the first to finish. Force does not skip this check. To port a change
+again, close its port PR first.
+
+A sync rerun pushes to the same `sync/factory-<change id>` branch and updates
+its PR. When it generates the same files, it leaves both alone.
+
+If the router starts nothing, for example because every dispatch failed, the
+comment says "Nothing started." Fix the problem, then remove and re-add the
+`factory:propagate` label. No force is needed. Once the router has started
+any workflow for an issue, it starts that issue again only with force.
 
 ### Kind of change and reach
 
@@ -236,9 +270,10 @@ You need `gh`, signed in as the owner of the hub and the forks, and
 2. Merge the factory into the hub's default branch, so GitHub registers its
    workflows.
 3. Run `factory/scripts/bootstrap.sh <owner>/<hub>`. It turns on issues and
-   Actions, sets a read-only default token and `FACTORY_SKIP_PUSH_SYNC=true`,
-   creates the labels in the hub and in each fork, and enables the factory
-   workflows. It is safe to run again.
+   Actions in the hub, sets `FACTORY_SKIP_PUSH_SYNC=true`, makes the default
+   workflow token read-only in the hub and in each SDK fork, creates the
+   labels in the hub and in each fork, and enables the factory workflows. It
+   is safe to run again.
 4. Add the two secrets that `bootstrap.sh` lists. Both are fine-grained
    personal access tokens. `bootstrap.sh` prints links that fill in the name,
    the description and the permissions.
@@ -291,10 +326,11 @@ You need `gh`, signed in as the owner of the hub and the forks, and
   draft PR in its target fork and one comment on the hub issue. A threat
   detection job reviews the output before the safe outputs job applies it.
   When detection flags the output or fails to finish, the run opens no PR and
-  posts no comment. Release files and pack test copies are dropped from the
-  patch. A patch that
-  touches a dependency manifest, an agent instruction file or `.github/`
-  still opens, with a review that requests changes.
+  posts no comment. Release files, pack test copies and everything under
+  `.github/` are dropped from the patch, because a fork runs a pushed
+  branch's workflows before anyone reviews it. A patch that touches a
+  dependency manifest, an agent instruction file or another dot folder still
+  opens, with a review that requests changes.
 - **Verify is advisory.** The verify job runs PR code in the same job as the
   checks, so a PR can change what that job reports. The job gets no secrets.
   The report job holds `FACTORY_TOKEN` and reads the verify results as data,
@@ -305,12 +341,28 @@ You need `gh`, signed in as the owner of the hub and the forks, and
   trace field by field, and comments only on an open factory PR in a fork
   whose body carries the run's gh-aw marker. gh-aw strips that marker from the
   agent's own text.
-- **No caches where secrets live.** Jobs that hold `FACTORY_TOKEN` and run SDK
-  code restore no Actions cache, and the setup actions run with caching off.
-- **Read unmerged sources first.** Lanes A and C run the source's spec or
-  generator templates while `FACTORY_TOKEN` is available. Only start them on
-  changes you have read. Before this runs upstream, split the sync job into a
-  generate job without secrets and a publish job that only pushes.
+- **Who can start a change.** The gate checks that the label sender can write
+  to the hub. The router acts on the issue body, so it also checks that the
+  issue author can write. Issues the factory's scanners open pass, because a
+  maintainer still adds the label.
+- **No dependency caches.** The sync, worker and verify jobs restore no
+  dependency cache, and their setup actions run with caching off. Code that
+  ran in one job cannot change what another job builds or pushes.
+- **Generated code runs without secrets.** Lanes A and C run the source's
+  spec, generator templates and Makefile, which can come from an unmerged
+  pull request. The sync job that runs them holds no token or secret. The
+  publish job holds the push token and runs none of that code. It refuses a
+  patch that does not start from a commit on the SDK's main, or that edits
+  `.github/workflows` or `.github/actions`. A pushed branch therefore runs
+  only the workflows its fork's main already has. Those workflows still run
+  the generated code in the fork's CI. The forks hold no secrets, and
+  `bootstrap.sh` makes their default workflow token read-only. A fork job that
+  asks for write scopes still gets them, so read a fork's workflows before you
+  add it. In the five forks today, only CodeQL asks for one on pull requests:
+  it can upload code scanning results. Only start a lane on changes you have
+  read.
+- **One port PR per change and SDK.** The router, the sync job and the worker
+  each skip an SDK whose fork already has an open port PR for the change.
 - **Cost caps.** Each worker run may spend 600 AI credits, enough for a deep
   tier run, and all worker runs together 2400 in a rolling 24 hours. Keep
   `max-ai-credits` a plain number: gh-aw v1.2.2 replaces an expression there
