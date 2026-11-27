@@ -34,7 +34,14 @@ KINDS = {
     "other-api": "Other API wrapper",
     "fix": "Fix or internal change",
 }
-SECTIONS = ("lane", "kind of change", "source", "change id", "target sdks", "options", "notes")
+# Model options of the issue form. The keys other than auto are the `models.tiers` keys in sdks.yaml.
+MODEL_TIERS = {
+    "auto": "Auto",
+    "deep": "Deep",
+    "standard": "Standard",
+    "light": "Light",
+}
+SECTIONS = ("lane", "kind of change", "model", "source", "change id", "target sdks", "options", "notes")
 
 
 class FactoryError(Exception):
@@ -193,13 +200,14 @@ def fork_sync(gh, upstream: str, fork: str, token: str | None, apply: bool = Tru
 
 
 def issue_form(
-    lane: str, source: str, change_id: str = "", targets: str = "", notes: str = "", kind: str = ""
+    lane: str, source: str, change_id: str = "", targets: str = "", notes: str = "", kind: str = "", model: str = ""
 ) -> str:
     """Body in the layout of .github/ISSUE_TEMPLATE/factory-propagate.yaml."""
     return "\n".join(
         [
             "### Lane", "", lane, "",
             "### Kind of change", "", kind or "_No response_", "",
+            "### Model", "", model or "_No response_", "",
             "### Source", "", source, "",
             "### Change id", "", change_id or "_No response_", "",
             "### Target SDKs", "", targets or "_No response_", "",

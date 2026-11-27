@@ -4,7 +4,8 @@
 # written out, so a new SDK also needs an option in the issue form, the worker's
 # `sdk` input, SYNC_SDKS in factory_route.py and the sync-sdks.yaml matrix.
 # test_factory.py fails until those lists match this file. A new language also
-# needs toolchain setup steps in factory-port.md and factory-verify.yml.
+# needs toolchain setup steps in factory-port.md and factory-verify.yml. A new
+# model in `models.allowed` also needs an option in the worker's `model` input.
 #
 # `repo` is the repository name under the factory owner (the owner of this
 # repository). In the lab the forks keep their historical names, so go and
@@ -104,6 +105,27 @@ reach:
   core-api: all
   other-api: all
   fix: all
+
+# The Copilot model each port worker runs on. The router takes the tier picked
+# in the issue's Model field. On Auto it takes the tier of the kind of change,
+# then `default_tier`, and passes that tier's model to the worker. `allowed`
+# must match the worker's `model` options in factory-port.md. Haiku models
+# never run: the worker blocks them and the router ignores them. The optional
+# FACTORY_MODELS repository variable overrides `tiers`, `kinds` and
+# `default_tier` as JSON in the same shape, for example
+# {"tiers": {"deep": "gpt-5.6-sol"}}. It cannot add a model to `allowed`.
+models:
+  allowed: [claude-opus-5.5, gpt-6.1-sol, gpt-6-sol, gpt-5.6-sol, gpt-6-luna, gpt-5.6-luna]
+  tiers:
+    deep: claude-opus-5.5
+    standard: gpt-6.1-sol
+    light: gpt-6-luna
+  default_tier: standard
+  kinds:
+    baseline: deep
+    core-api: standard
+    other-api: standard
+    fix: standard
 
 # Files the factory never edits by hand in any SDK.
 never_edit:

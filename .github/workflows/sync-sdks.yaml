@@ -8,7 +8,8 @@ name: Sync SDKs with generator
 # - change_id names a factory change. It gives the run its own sync branch and
 #   a draft PR labelled `factory`.
 # - port_after starts the factory port worker on each new sync PR, so an agent
-#   adds the hand-written layer in a stacked draft PR.
+#   adds the hand-written layer in a stacked draft PR. model picks the worker's
+#   Copilot model. The router sets it from `models` in factory/sdks.yaml.
 # - A run with change_id and an openapi_ref, generator_repo or generator_ref
 #   builds each SDK before and after that change and applies only the
 #   difference (factory/scripts/delta_sync.sh). Release versions and hand
@@ -64,6 +65,10 @@ on:
         default: false
       tracking_issue:
         description: "SDK factory tracking issue number in this repository"
+        type: string
+        default: ""
+      model:
+        description: "Copilot model for the port worker (empty uses the worker's default)"
         type: string
         default: ""
 
@@ -473,12 +478,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           CHANGE_ID: ${{ inputs.change_id }}
           TRACKING_ISSUE: ${{ inputs.tracking_issue }}
+          MODEL: ${{ inputs.model }}
         run: |
           shopt -s nullglob
           files=(factory-port/*.json)
           if [[ ${#files[@]} -eq 0 ]]; then
             echo "No new sync PRs, so no port workers to start." >> "$GITHUB_STEP_SUMMARY"
             exit 0
+          fi
+          extra=()
+          if [[ -n "$MODEL" ]]; then
+            extra=(-f model="$MODEL")
           fi
           for f in "${files[@]}"; do
             sdk=$(jq -r .sdk "$f"); repo=$(jq -r .repo "$f")
@@ -491,6 +501,7 @@ jobs:
               -f source="${repo}/pull/${pr}" \
               -f change_id="$CHANGE_ID" \
               -f base_branch="$branch" \
-              -f tracking_issue="$TRACKING_ISSUE"
+              -f tracking_issue="$TRACKING_ISSUE" \
+              "${extra[@]}"
             echo "- ${sdk}: port worker started for \`${repo}/pull/${pr}\` on \`${branch}\`" >> "$GITHUB_STEP_SUMMARY"
           done
