@@ -150,9 +150,12 @@ def acceptance_runners(change_id: str, root: Path = ACCEPTANCE_DIR) -> list | No
 
 
 class GitHub:
-    """Thin wrapper over `gh api`. Pass token= to act with a different token."""
+    """Thin wrapper over `gh api`. Pass token= to act with a different token.
 
-    def api(self, path, *, method="GET", fields=None, headers=None, paginate=False, token=None):
+    body= sends a JSON request body, for payloads that fields cannot express.
+    raw=True returns the response text, for media types such as diffs."""
+
+    def api(self, path, *, method="GET", fields=None, headers=None, paginate=False, token=None, body=None, raw=False):
         cmd = ["gh", "api", "-X", method, path]
         if paginate:
             cmd += ["--paginate", "--slurp"]
@@ -163,12 +166,17 @@ class GitHub:
                 cmd += ["-F", f"{key}={str(value).lower()}"]
             else:
                 cmd += ["-f", f"{key}={value}"]
+        if body is not None:
+            cmd += ["--input", "-"]
         env = dict(os.environ)
         if token:
             env["GH_TOKEN"] = token
-        done = subprocess.run(cmd, capture_output=True, text=True, env=env)
+        stdin = json.dumps(body) if body is not None else None
+        done = subprocess.run(cmd, capture_output=True, text=True, env=env, input=stdin)
         if done.returncode != 0:
             raise ApiError(path, (done.stderr or done.stdout).strip())
+        if raw:
+            return done.stdout
         if not done.stdout.strip():
             return None
         data = json.loads(done.stdout)

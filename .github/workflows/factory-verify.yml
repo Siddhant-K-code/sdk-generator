@@ -9,6 +9,11 @@ name: SDK factory verify
 # its results are advisory: the PR's code runs in the same job as the checks,
 # so it can change what that job reports. A maintainer still reviews every PR.
 # The report job holds FACTORY_TOKEN and reads the verify artifacts as data.
+#
+# The review job then starts the reviewer (factory-review.md) on each verified
+# head without a factory review. It holds no secrets: it only reads public PR
+# data and dispatches a workflow. The FACTORY_REVIEW variable set to `off`
+# stops it.
 
 on:
   workflow_run:
@@ -175,3 +180,29 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           FACTORY_TOKEN: ${{ secrets.FACTORY_TOKEN }}
         run: python3 factory/scripts/factory_verify.py report --results results
+
+  # Also runs when nothing needed verifying, so a review that failed to start
+  # gets another try on the next scheduled run.
+  review:
+    needs: [find, report]
+    if: always() && needs.find.result == 'success' && needs.report.result != 'failure' && vars.FACTORY_REVIEW != 'off'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The secrets are only tested for being set; their values stay out of
+      # this job.
+      - name: Start reviews
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr }}
+          HAS_FACTORY_TOKEN: ${{ secrets.FACTORY_TOKEN != '' }}
+          HAS_COPILOT_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN != '' }}
+        run: python3 factory/scripts/factory_review.py dispatch --pr "$PR"

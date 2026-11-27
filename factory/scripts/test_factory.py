@@ -57,8 +57,16 @@ class FakeGitHub:
         self.calls = []
         self.posted = {}
 
-    def api(self, path, *, method="GET", fields=None, headers=None, paginate=False, token=None):
-        call = {"method": method, "path": path, "fields": dict(fields or []), "headers": headers or {}, "token": token}
+    def api(self, path, *, method="GET", fields=None, headers=None, paginate=False, token=None, body=None, raw=False):
+        call = {
+            "method": method,
+            "path": path,
+            "fields": dict(fields or []),
+            "headers": headers or {},
+            "token": token,
+            "json": copy.deepcopy(body),
+            "raw": raw,
+        }
         self.calls.append(call)
         key = (method, path.split("?")[0])
         edit = re.fullmatch(r"repos/[^/]+/[^/]+/issues/comments/(\d+)", key[1])

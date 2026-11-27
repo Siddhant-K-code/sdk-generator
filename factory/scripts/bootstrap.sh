@@ -77,7 +77,10 @@ for fork in "${forks[@]}"; do
   label "$fork" "factory:checks-passed" C2E0C6 "Checks pass. This change has no acceptance tests"
   label "$fork" "factory:needs-human" D93F0B "Verify could not decide. A maintainer has to look"
   label "$fork" "factory:verify-failed" B60205 "A check or acceptance test fails because of this PR"
-  echo "$fork: factory, sync-with-generator and the four verify labels"
+  label "$fork" "factory:review-ok" 0E8A16 "The factory review found nothing that blocks a maintainer review"
+  label "$fork" "factory:review-changes" FBCA04 "The factory review asked for changes"
+  label "$fork" "factory:review-human" D93F0B "The factory review needs a maintainer's decision"
+  echo "$fork: factory, sync-with-generator, the four verify labels and the three review labels"
 done
 
 step "Workflows"
@@ -111,8 +114,8 @@ if has COPILOT_GITHUB_TOKEN; then
   echo "COPILOT_GITHUB_TOKEN: set"
 else
   cat <<EOF
-COPILOT_GITHUB_TOKEN: missing. The port worker's agent and threat detection use it
-for model calls, which count against your Copilot seat.
+COPILOT_GITHUB_TOKEN: missing. The port worker, the reviewer and their threat detection
+use it for model calls, which count against your Copilot seat.
   1. Open this link, which fills in the name and the permission:
      $new_token?name=COPILOT_GITHUB_TOKEN&description=SDK+factory+model+calls&expires_in=90&user_copilot_requests=read
      Keep your user account as the resource owner. Check that Account permissions >
@@ -125,7 +128,7 @@ if has FACTORY_TOKEN; then
 else
   cat <<EOF
 FACTORY_TOKEN: missing. The factory uses it to sync forks, push branches, open draft
-PRs and comment on hub issues. The agent never sees it.
+PRs, post reviews and comment on hub issues. The agent never sees it.
   1. Open this link, which fills in the name, the owner and the permissions:
      $new_token?name=FACTORY_TOKEN&description=SDK+factory+fork+writes&target_name=$owner&expires_in=90&contents=write&issues=write&pull_requests=write&workflows=write
   2. Pick Only select repositories, then add:
@@ -139,4 +142,5 @@ step "Next"
 echo "gh aw secrets bootstrap --non-interactive --repo $hub   # checks COPILOT_GITHUB_TOKEN"
 echo "gh aw doctor   # in a checkout of $hub: checks FACTORY_TOKEN"
 echo "gh workflow run factory-sync-forks.yml --repo $hub"
+echo "Verified PRs get a model review. gh variable set FACTORY_REVIEW --repo $hub --body off   # stops reviews"
 echo "Then open https://github.com/$hub/issues/new/choose, pick \"SDK factory change\" and tick Plan only."
