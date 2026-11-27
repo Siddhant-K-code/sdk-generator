@@ -16,6 +16,7 @@ import factory_route as route  # noqa: E402
 from factory_lib import (  # noqa: E402
     KINDS,
     LANES,
+    MODEL_TIERS,
     ROOT,
     ApiError,
     FactoryError,
@@ -36,6 +37,12 @@ REGISTRY = {
         "python": {"upstream": "openfga/python-sdk", "repo": "openfga-python-sdk"},
         "java": {"upstream": "openfga/java-sdk", "repo": "java-sdk"},
         "dotnet": {"upstream": "openfga/dotnet-sdk", "repo": "dotnet-sdk"},
+    },
+    "models": {
+        "allowed": ["claude-opus-5.5", "gpt-6.1-sol", "gpt-6-luna"],
+        "tiers": {"deep": "claude-opus-5.5", "standard": "gpt-6.1-sol", "light": "gpt-6-luna"},
+        "default_tier": "standard",
+        "kinds": {"baseline": "deep", "core-api": "standard", "other-api": "standard", "fix": "standard"},
     },
 }
 UPSTREAM_MENTION = re.compile(r"https://github\.com/openfga/|openfga/[\w.-]+#\d")
@@ -376,6 +383,94 @@ class ReachTest(RouteCase):
         self.assertIn("The reach for `other-api` in `FACTORY_REACH` is not `all` or a list", warning)
 
 
+class ModelTest(RouteCase):
+    DEEP = "Deep: strongest model, for baseline behavior and hard ports"
+
+    def lane_b(self, kind: str = "", model: str = "") -> FakeGitHub:
+        body = issue_form(
+            "B: port an SDK change", "openfga/js-sdk/pull/228", "custom-claims", "go, python", kind=kind, model=model
+        )
+        responses = base_responses(body)
+        responses[("GET", "repos/openfga/js-sdk/pulls/228")] = merged_pr("feat: support custom claims (#228)")
+        return FakeGitHub(responses)
+
+    def models(self, gh) -> list:
+        return [d["fields"].get("inputs[model]") for d in gh.dispatches()]
+
+    def test_tier_comes_from_the_issue_then_the_kind_then_the_default(self):
+        cases = [
+            ("Baseline behavior", "", "claude-opus-5.5", "Deep tier, from the kind of change"),
+            ("Core API wrapper", "Light: fast, low-cost model", "gpt-6-luna", "Light tier, picked in the issue"),
+            ("", "Auto: pick from the kind of change", "gpt-6.1-sol", "Standard tier, the default"),
+        ]
+        for kind, model, expected, why in cases:
+            with self.subTest(kind=kind, model=model):
+                gh = self.lane_b(kind, model)
+
+                self.assertEqual(self.route(gh), 0)
+
+                self.assertEqual(self.models(gh), [expected, expected])
+                [comment] = gh.comments()
+                self.assertIn(f"| Worker model | `{expected}` ({why}) |", comment)
+
+    def test_models_variable_overrides_tiers_but_cannot_add_models(self):
+        gh = self.lane_b("Baseline behavior")
+        self.assertEqual(self.route(gh, models_override='{"tiers": {"deep": "gpt-6-luna"}}'), 0)
+        self.assertEqual(self.models(gh), ["gpt-6-luna", "gpt-6-luna"])
+
+        gh = self.lane_b("Baseline behavior")
+        override = '{"tiers": {"deep": "claude-haiku-5.5"}, "allowed": ["claude-haiku-5.5"]}'
+        self.assertEqual(self.route(gh, models_override=override), 0)
+        self.assertEqual(self.models(gh), ["claude-opus-5.5", "claude-opus-5.5"])
+        [comment] = gh.comments()
+        self.assertIn("The deep model in `FACTORY_MODELS` is `claude-haiku-5.5`, not a model in `models.allowed`", comment)
+        self.assertIn("`FACTORY_MODELS` can only set `tiers`, `kinds` and `default_tier`, so the factory ignored `allowed`.", comment)
+
+    def test_haiku_in_the_registry_never_runs(self):
+        registry = copy.deepcopy(REGISTRY)
+        registry["models"]["allowed"].append("claude-haiku-5.5")
+        registry["models"]["tiers"]["light"] = "claude-haiku-5.5"
+
+        models, warnings = route.load_models(registry)
+
+        self.assertNotIn("light", models["tiers"])
+        self.assertIn("`models.allowed` in `sdks.yaml` lists a Haiku model. Haiku models never run.", warnings)
+        plan = route.Plan(lane="B", source=normalize_source("openfga/js-sdk/pull/228"), kind="fix")
+        request = route.Request(lane="B", source=plan.source, raw_source="", model_tier="light")
+        route.choose_model(plan, request, models)
+        self.assertEqual((plan.model, plan.model_tier), ("gpt-6.1-sol", "standard"))
+        self.assertIn("No model is set for the Light tier, so the worker uses the Standard tier.", plan.warnings)
+
+    def test_lanes_a_and_c_pass_the_model_only_to_port_workers(self):
+        body = issue_form("A: API spec bump", "openfga/api/pull/250", kind="Core API wrapper", model=self.DEEP)
+        responses = base_responses(body)
+        responses[("GET", "repos/openfga/api/pulls/250")] = merged_pr("feat: add store filters (#250)")
+        gh = FakeGitHub(responses)
+
+        self.assertEqual(self.route(gh), 0)
+
+        [only] = gh.dispatches()
+        self.assertNotIn("inputs[model]", only["fields"])
+        [comment] = gh.comments()
+        self.assertIn("The model only applies to port workers, and this run starts none.", comment)
+        self.assertNotIn("Worker model", comment)
+
+        responses[("GET", f"repos/{HUB}/issues/7")] = {"body": body.replace("- [ ] Lanes A and C", "- [X] Lanes A and C")}
+        gh = FakeGitHub(responses)
+
+        self.assertEqual(self.route(gh), 0)
+
+        [only] = gh.dispatches()
+        self.assertEqual((only["fields"]["inputs[port_after]"], only["fields"]["inputs[model]"]), ("true", "claude-opus-5.5"))
+        self.assertIn("| Worker model | `claude-opus-5.5` (Deep tier, picked in the issue) |", gh.comments()[0])
+
+    def test_unknown_model_answer_is_a_problem(self):
+        body = issue_form("B: port an SDK change", "openfga/js-sdk/pull/228", model="Huge")
+        with self.assertRaises(FactoryError) as caught:
+            route.parse_request(body, REGISTRY)
+        self.assertEqual(caught.exception.problems, ["Pick a model: Auto, Deep, Standard, Light."])
+
+
 class LaneACTest(RouteCase):
     def test_api_bump_starts_one_sync_run_for_all_sdks(self):
         body = issue_form("A: API spec bump", "openfga/api/pull/250")
@@ -488,7 +583,31 @@ class RepositoryFilesTest(unittest.TestCase):
     def test_form_options_parse(self):
         self.assertEqual(set(self.form["lane"]["options"]), set(LANES.values()))
         self.assertEqual(sorted(route.match_kind(option) for option in self.form["kind"]["options"]), sorted(KINDS))
+        self.assertEqual(sorted(route.match_tier(option) for option in self.form["model"]["options"]), sorted(MODEL_TIERS))
         self.assertEqual(route.load_reach(self.registry)[1], [])
+
+    def test_model_lists_match_the_registry(self):
+        models = self.registry["models"]
+        worker = load_yaml(ROOT / ".github/workflows/factory-port.lock.yml")
+        model_input = worker["on"]["workflow_dispatch"]["inputs"]["model"]
+
+        self.assertEqual(model_input["options"], models["allowed"])
+        self.assertEqual(model_input["default"], models["tiers"][models["default_tier"]])
+        loaded, warnings = route.load_models(self.registry)
+        self.assertEqual(warnings, [])
+        self.assertEqual(set(loaded["tiers"]), set(MODEL_TIERS) - {"auto"})
+        self.assertEqual(set(loaded["kinds"]), set(KINDS))
+
+    def test_haiku_never_runs(self):
+        workflows = ROOT / ".github/workflows"
+        self.assertIn('"blocked":["*haiku*"]', (workflows / "factory-port.lock.yml").read_text())
+        haiku = re.compile(r"(?i)\b[\w.]+-haiku\b|\bhaiku-[\d.]+")
+        files = [ROOT / "factory/sdks.yaml", ROOT / ".github/ISSUE_TEMPLATE/factory-propagate.yaml", workflows / "sync-sdks.yaml"]
+        files += sorted(workflows.glob("factory-*.md"))
+        files += [path for path in sorted(workflows.glob("factory-*.yml")) if not path.name.endswith(".lock.yml")]
+        for path in files:
+            with self.subTest(path=path.name):
+                self.assertIsNone(haiku.search(path.read_text()))
 
 
 if __name__ == "__main__":

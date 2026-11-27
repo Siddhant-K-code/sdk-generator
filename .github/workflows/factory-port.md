@@ -35,6 +35,14 @@ on:
         required: false
         default: ""
         type: string
+      # Keep in step with `models.allowed` in factory/sdks.yaml. Haiku models
+      # are never offered, and `models.blocked` below rejects them at run time.
+      model:
+        description: Copilot model for the agent. The router picks it from `models` in factory/sdks.yaml.
+        required: false
+        default: gpt-6.1-sol
+        type: choice
+        options: [claude-opus-5.5, gpt-6.1-sol, gpt-6-sol, gpt-5.6-sol, gpt-6-luna, gpt-5.6-luna]
 
 # The FACTORY_PAUSED repository variable stops every factory workflow.
 if: vars.FACTORY_PAUSED != 'true'
@@ -47,6 +55,10 @@ permissions:
 
 engine:
   id: copilot
+  model: ${{ inputs.model }}
+  # Used on server errors, timeouts, unsupported models and model
+  # availability errors. Rate limits, auth and policy failures do not switch.
+  fallback-models: [gpt-6-sol, gpt-5.6-sol]
   concurrency:
     group: factory-port-agent-${{ github.event.inputs.change_id }}-${{ github.event.inputs.sdk }}
 
@@ -56,9 +68,11 @@ concurrency:
   job-discriminator: ${{ github.run_id }}
 
 timeout-minutes: 45
-max-ai-credits: 400
+# Room for a deep-tier (Opus) run, which costs about twice a standard run.
+# Keep it a plain number: gh-aw 1.2.2 replaces an expression with its default.
+max-ai-credits: 600
 # One four-SDK fan-out a day by default. The gh-aw variable overrides it.
-max-daily-ai-credits: ${{ vars.GH_AW_DEFAULT_MAX_DAILY_AI_CREDITS || '1600' }}
+max-daily-ai-credits: ${{ vars.GH_AW_DEFAULT_MAX_DAILY_AI_CREDITS || '2400' }}
 
 checkout:
   - fetch-depth: 1
@@ -179,8 +193,24 @@ steps:
         8.0.x
         9.0.x
 
+# Haiku never runs, even through a gh-aw alias. Helper tasks and threat
+# detection would otherwise start on the `mini` and `detection` aliases,
+# which try Haiku first.
+models:
+  blocked: ["*haiku*"]
+  mini: [gpt-6-luna, gpt-5.6-luna]
+  small-agent: [gpt-6-luna, gpt-5.6-luna]
+  summarization: [gpt-6-luna, gpt-5.6-luna]
+  detection: [gpt-6-luna, gpt-5.6-luna]
+
 safe-outputs:
   github-token: ${{ secrets.FACTORY_TOKEN }}
+  # A flagged or failed review blocks the PR and the issue comment.
+  threat-detection:
+    engine:
+      id: copilot
+      model: gpt-6-luna
+    continue-on-error: false
   create-pull-request:
     target-repo: ${{ github.event.inputs.target_repo }}
     base-branch: ${{ github.event.inputs.base_branch }}

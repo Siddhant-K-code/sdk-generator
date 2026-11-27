@@ -97,29 +97,36 @@ fi
 step "Secrets"
 secrets="$(gh secret list --repo "$hub" --json name --jq '.[].name')"
 has() { printf '%s\n' "$secrets" | grep -qx "$1"; }
+new_token="https://github.com/settings/personal-access-tokens/new"
 if has COPILOT_GITHUB_TOKEN; then
   echo "COPILOT_GITHUB_TOKEN: set"
 else
   cat <<EOF
-COPILOT_GITHUB_TOKEN: missing. The port worker uses it for model calls.
-  1. Create a fine-grained token with your user account as the resource owner and
-     Account permissions > Copilot Requests: Read:
-     https://github.com/settings/personal-access-tokens/new?name=COPILOT_GITHUB_TOKEN&user_copilot_requests=read
-  2. gh secret set COPILOT_GITHUB_TOKEN --repo $hub
+COPILOT_GITHUB_TOKEN: missing. The port worker's agent and threat detection use it
+for model calls, which count against your Copilot seat.
+  1. Open this link, which fills in the name and the permission:
+     $new_token?name=COPILOT_GITHUB_TOKEN&description=SDK+factory+model+calls&expires_in=90&user_copilot_requests=read
+     Keep your user account as the resource owner. Check that Account permissions >
+     Copilot Requests is set. The token needs no repository access.
+  2. gh aw secrets set COPILOT_GITHUB_TOKEN --repo $hub
 EOF
 fi
 if has FACTORY_TOKEN; then
   echo "FACTORY_TOKEN: set"
 else
   cat <<EOF
-FACTORY_TOKEN: missing. The factory uses it to sync forks, push branches and open PRs.
-  1. Create a fine-grained token with resource owner $owner, limited to these repositories:
+FACTORY_TOKEN: missing. The factory uses it to sync forks, push branches, open draft
+PRs and comment on hub issues. The agent never sees it.
+  1. Open this link, which fills in the name, the owner and the permissions:
+     $new_token?name=FACTORY_TOKEN&description=SDK+factory+fork+writes&target_name=$owner&expires_in=90&contents=write&issues=write&pull_requests=write&workflows=write
+  2. Pick Only select repositories, then add:
      $hub $api_fork ${forks[*]}
-     Repository permissions, each Read and write: Contents, Issues, Pull requests, Workflows.
-  2. gh secret set FACTORY_TOKEN --repo $hub
+  3. Check Read and write on Contents, Issues, Pull requests and Workflows.
+  4. gh aw secrets set FACTORY_TOKEN --repo $hub
 EOF
 fi
 
 step "Next"
+echo "gh aw doctor --repo $hub"
 echo "gh workflow run factory-sync-forks.yml --repo $hub"
 echo "Then open https://github.com/$hub/issues/new/choose, pick \"SDK factory change\" and tick Plan only."

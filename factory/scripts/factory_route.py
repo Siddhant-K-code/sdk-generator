@@ -24,6 +24,7 @@ from factory_lib import (  # noqa: E402
     CHANGE_ID_RE,
     KINDS,
     LANES,
+    MODEL_TIERS,
     ORIGIN_TRAILER,
     SERVER,
     SHA_RE,
@@ -81,6 +82,7 @@ class Request:
     plan_only: bool = False
     port_after: bool = False
     notes: str = ""
+    model_tier: str = "auto"
 
 
 @dataclasses.dataclass
@@ -106,6 +108,10 @@ class Plan:
     port_sdks: list | None = None
     # SDKs the reach left out of the default targets or the port workers.
     left_out: list = dataclasses.field(default_factory=list)
+    # The port worker's model, set only when the plan starts a port worker.
+    model: str = ""
+    model_tier: str = ""
+    model_why: str = ""
     warnings: list = dataclasses.field(default_factory=list)
 
 
@@ -132,6 +138,14 @@ def match_kind(text: str) -> str:
     return ""
 
 
+def match_tier(text: str) -> str:
+    """The MODEL_TIERS key for a form answer, "auto" when empty, or "" when it names no tier."""
+    word = re.split(r"[:\s]", text.strip().strip("`").strip().lower(), maxsplit=1)[0]
+    if not word:
+        return "auto"
+    return word if word in MODEL_TIERS else ""
+
+
 def parse_request(body: str, registry: dict) -> Request:
     sections = parse_sections(body)
     problems = []
@@ -142,6 +156,9 @@ def parse_request(body: str, registry: dict) -> Request:
     kind = match_kind(kind_text)
     if kind_text and not kind:
         problems.append(f"Pick a kind of change: {', '.join(KINDS.values())}.")
+    model_tier = match_tier(sections.get("model", ""))
+    if not model_tier:
+        problems.append(f"Pick a model: {', '.join(MODEL_TIERS.values())}.")
     raw_source = sections.get("source", "")
     source = None
     try:
@@ -181,6 +198,7 @@ def parse_request(body: str, registry: dict) -> Request:
         plan_only=checked(options, "Plan only"),
         port_after=checked(options, "Lanes A and C"),
         notes=notes,
+        model_tier=model_tier,
     )
 
 
@@ -368,6 +386,105 @@ def reach_keys(kind: str, value, every: list, source: str, warnings: list) -> li
     return [key for key in every if key in value]
 
 
+def load_models(registry: dict, override: str = "") -> tuple:
+    """The port worker's model per tier and the tier per kind of change, plus warnings.
+
+    `models` in sdks.yaml is the default. The FACTORY_MODELS variable, a JSON
+    object with any of `tiers`, `kinds` and `default_tier`, wins per entry. It
+    cannot add models: a model outside `models.allowed` falls back to sdks.yaml,
+    and Haiku models never run."""
+    default, extra, warnings = registry.get("models") or {}, {}, []
+    if override.strip():
+        try:
+            extra = json.loads(override)
+        except ValueError:
+            extra = None
+        if not isinstance(extra, dict):
+            warnings.append("The `FACTORY_MODELS` variable is not a JSON object, so the factory ignored it.")
+            extra = {}
+    ignored = [key for key in extra if key not in ("tiers", "kinds", "default_tier")]
+    if ignored:
+        warnings.append(
+            f"`FACTORY_MODELS` can only set `tiers`, `kinds` and `default_tier`, so the factory ignored {names_text(ignored)}."
+        )
+    allowed = [model for model in default.get("allowed") or [] if "haiku" not in str(model).lower()]
+    if len(allowed) < len(default.get("allowed") or []):
+        warnings.append("`models.allowed` in `sdks.yaml` lists a Haiku model. Haiku models never run.")
+    tiers = [tier for tier in MODEL_TIERS if tier != "auto"]
+    layers = (("`FACTORY_MODELS`", extra), ("`sdks.yaml`", default))
+
+    def tables(key: str, names: list, what: str) -> list:
+        found = []
+        for label, layer in layers:
+            table = layer.get(key)
+            if table is None:
+                table = {}
+            if not isinstance(table, dict):
+                warnings.append(f"`{key}` in {label} is not a mapping, so the factory ignored it.")
+                table = {}
+            unknown = [name for name in table if name not in names]
+            if unknown:
+                warnings.append(f"`{key}` in {label} names an unknown {what}: {names_text(unknown)}.")
+            found.append((label, table))
+        return found
+
+    def pick(what: str, values: list, valid: list, wanted: str) -> str:
+        for label, value in values:
+            if value is None:
+                continue
+            if isinstance(value, str) and value in valid:
+                return value
+            warnings.append(f"{what} in {label} is {code(value)}, not {wanted}, so the factory ignored it.")
+        return ""
+
+    tier_tables = tables("tiers", tiers, "tier")
+    kind_tables = tables("kinds", list(KINDS), "kind of change")
+    one_of = "one of `deep`, `standard` and `light`"
+    models = {
+        "tiers": {
+            tier: pick(f"The {tier} model", [(label, table.get(tier)) for label, table in tier_tables], allowed,
+                       "a model in `models.allowed`")
+            for tier in tiers
+        },
+        "kinds": {
+            kind: pick(f"The tier for {code(kind)}", [(label, table.get(kind)) for label, table in kind_tables],
+                       tiers, one_of)
+            for kind in KINDS
+        },
+        "default_tier": pick("The default tier", [(label, layer.get("default_tier")) for label, layer in layers],
+                             tiers, one_of) or "standard",
+    }
+    models["tiers"] = {tier: model for tier, model in models["tiers"].items() if model}
+    models["kinds"] = {kind: tier for kind, tier in models["kinds"].items() if tier}
+    return models, warnings
+
+
+def choose_model(plan: Plan, req: Request, models: dict) -> None:
+    """Pick the port worker's model: the tier picked in the issue, else the kind's tier, else the default."""
+    if not (plan.lane == "B" or (plan.port_after and plan.port_sdks != [])):
+        if req.model_tier != "auto":
+            plan.warnings.append("The model only applies to port workers, and this run starts none.")
+        return
+    if not models["tiers"]:
+        return
+    if req.model_tier != "auto":
+        tier, why = req.model_tier, "picked in the issue"
+    elif plan.kind in models["kinds"]:
+        tier, why = models["kinds"][plan.kind], "from the kind of change"
+    else:
+        tier, why = models["default_tier"], "the default"
+    if tier not in models["tiers"]:
+        fallback = models["default_tier"]
+        if fallback not in models["tiers"]:
+            plan.warnings.append("No model is set for the default tier, so the worker uses its own default model.")
+            return
+        plan.warnings.append(
+            f"No model is set for the {MODEL_TIERS[tier]} tier, so the worker uses the {MODEL_TIERS[fallback]} tier."
+        )
+        tier, why = fallback, "the default"
+    plan.model, plan.model_tier, plan.model_why = models["tiers"][tier], tier, why
+
+
 def names_text(keys: list) -> str:
     items = [code(key) for key in keys]
     return items[0] if len(items) == 1 else f"{', '.join(items[:-1])} and {items[-1]}"
@@ -467,6 +584,8 @@ def render(plan: Plan, mode: str, rows: list, hub_status: str, pack: str, setup:
         fields.append(("Generator", f"{code(plan.generator_repo)} at {code(plan.generator_label or plan.generator_ref)}"))
     if plan.lane in ("A", "C"):
         fields.append(("Port worker after sync", "yes" if plan.port_after else "no"))
+    if plan.model:
+        fields.append(("Worker model", f"{code(plan.model)} ({MODEL_TIERS[plan.model_tier]} tier, {plan.model_why})"))
     fields.append(("Acceptance pack", pack))
     if hub_status:
         fields.append(("Hub sync", hub_status))
@@ -549,16 +668,18 @@ def run(
     force: bool = False,
     acceptance_root: Path = ACCEPTANCE_DIR,
     reach_override: str = "",
+    models_override: str = "",
 ) -> int:
     issue = gh.api(f"repos/{hub}/issues/{number}")
     reach, reach_warnings = load_reach(registry, reach_override)
+    models, model_warnings = load_models(registry, models_override)
     try:
         req = parse_request(issue.get("body") or "", registry)
         plan = resolve(gh, registry, hub, req, number, reach)
     except FactoryError as err:
         post(gh, hub, number, render_error(err.problems))
         return 1
-    plan.warnings += reach_warnings
+    plan.warnings += reach_warnings + model_warnings
 
     setup = []
     if not factory_token:
@@ -569,6 +690,7 @@ def run(
         elif plan.port_after:
             plan.port_after = False
             plan.warnings.append("Port workers need the `COPILOT_GITHUB_TOKEN` secret, so this run only opens sync PRs.")
+    choose_model(plan, req, models)
     mode = "plan" if req.plan_only or setup else "dispatched"
 
     if mode == "dispatched" and not force and already_dispatched(gh, hub, number):
@@ -619,6 +741,8 @@ def start(gh, hub: str, ref: str, number: int, plan: Plan, req: Request, rows: l
             }
             if req.notes:
                 inputs["notes"] = req.notes
+            if plan.model:
+                inputs["model"] = plan.model
             try:
                 row.run = f"[started]({dispatch(gh, hub, PORT_WORKFLOW, ref, inputs)})"
             except ApiError as err:
@@ -642,6 +766,8 @@ def start(gh, hub: str, ref: str, number: int, plan: Plan, req: Request, rows: l
     for sdk, members in groups:
         port = ports[members[0].sdk]
         run_inputs = {"sdk": sdk, **inputs, "port_after": "true" if port else "false"}
+        if port and plan.model:
+            run_inputs["model"] = plan.model
         try:
             link = f"[started]({dispatch(gh, hub, SYNC_WORKFLOW, ref, run_inputs)})"
         except ApiError as err:
@@ -665,6 +791,7 @@ def main(argv=None) -> int:
         has_copilot=os.environ.get("HAS_COPILOT_TOKEN", "") == "true",
         force=args.force.lower() == "true",
         reach_override=os.environ.get("FACTORY_REACH", ""),
+        models_override=os.environ.get("FACTORY_MODELS", ""),
     )
 
 

@@ -7,6 +7,8 @@ name: SDK factory router
 #
 # vars.FACTORY_REACH (optional JSON) overrides `reach` in factory/sdks.yaml,
 # so a team can keep which SDKs each kind of change reaches out of the repo.
+# vars.FACTORY_MODELS (optional JSON) overrides `models` the same way, except
+# `models.allowed`.
 
 on:
   issues:
@@ -83,6 +85,7 @@ jobs:
           FACTORY_TOKEN: ${{ secrets.FACTORY_TOKEN }}
           HAS_COPILOT_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN != '' }}
           FACTORY_REACH: ${{ vars.FACTORY_REACH }}
+          FACTORY_MODELS: ${{ vars.FACTORY_MODELS }}
           ISSUE: ${{ github.event.issue.number || inputs.issue_number }}
           FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force || false }}
         run: python3 factory/scripts/factory_route.py --issue "$ISSUE" --force "$FORCE"

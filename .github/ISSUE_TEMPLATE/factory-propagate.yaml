@@ -37,6 +37,18 @@ body:
     validations:
       required: true
 
+  - type: dropdown
+    id: model
+    attributes:
+      label: Model
+      description: "The model for port workers. Auto picks it from the kind of change. See `models` in factory/sdks.yaml. The plan comment names the model."
+      options:
+        - "Auto: pick from the kind of change"
+        - "Deep: strongest model, for baseline behavior and hard ports"
+        - "Standard: the default model"
+        - "Light: fast, low-cost model, for docs and small fixes"
+      default: 0
+
   - type: input
     id: source
     attributes:

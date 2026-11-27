@@ -69,7 +69,8 @@ registry. A new language also needs toolchain setup steps in the worker and in
 
 1. Open an issue with the **SDK factory change** form. Only people with write
    access to the hub can start the router.
-2. Pick the lane and the kind of change.
+2. Pick the lane and the kind of change. Leave **Model** on Auto unless the
+   change needs a stronger or a cheaper model.
 3. Write the source as a path, for example `openfga/js-sdk/pull/228`. A full
    URL also works, but it adds a "mentioned" event to the upstream thread.
 4. Leave **Target SDKs** empty to reach every SDK in reach for that kind,
@@ -115,6 +116,48 @@ Kinds that the variable leaves out keep the value from `sdks.yaml`, and so does
 a kind whose value is not `all` or a list. A variable that is not a JSON object
 is ignored. The plan comment shows each warning and names any SDK that the
 reach leaves out.
+
+### Model
+
+The port worker is the only step that calls a model, so the router picks its
+model for each change. It takes the tier from the **Model** field. On Auto it
+takes the tier of the kind of change, then `default_tier`. `models` in
+`factory/sdks.yaml` maps each tier to a model:
+
+| Tier | Model | On Auto, used for | Fits |
+|---|---|---|---|
+| Deep | `claude-opus-5.5` | Baseline behavior | Auth, retries, streaming: ports that need care in every language |
+| Standard | `gpt-6.1-sol` | Core API, other API, fix, and changes with no kind | Most ports |
+| Light | `gpt-6-luna` | Nothing by default | Docs, examples and small fixes |
+
+The plan comment names the model and says why the router picked it. Lane B
+passes it to every worker. Lanes A and C pass it only to the port workers on
+their sync PRs.
+
+The `FACTORY_MODELS` repository variable overrides `tiers`, `kinds` and
+`default_tier` without a commit. It takes JSON in the same shape:
+
+```sh
+gh variable set FACTORY_MODELS --repo <owner>/<hub> --body '{"tiers": {"deep": "gpt-5.6-sol"}}'
+```
+
+The variable cannot add a model. A model outside `models.allowed` keeps the
+value from `sdks.yaml`, and the plan comment shows a warning. `models.allowed`
+must match the worker's `model` input, and `test_factory.py` checks that.
+
+Haiku never runs. The worker's `models` block rejects `*haiku*`, and it points
+the gh-aw aliases that would try Haiku first (`mini`, `small-agent`,
+`summarization` and `detection`) at `gpt-6-luna`. The router drops a Haiku
+model from `sdks.yaml` or `FACTORY_MODELS`.
+
+When a model call fails with a server error or a timeout, or the model is not
+available to the token owner, gh-aw retries the same call on `gpt-6-sol`, then
+`gpt-5.6-sol`. Rate limits, auth errors and policy errors do not switch
+models. Threat detection always runs on `gpt-6-luna`.
+
+gh-aw counts AI credits from its own price list. It prices the fallback models
+from the lock file and the model picked at run time on a best-effort basis, so
+check real spend on the Copilot usage page.
 
 ## Acceptance packs
 
@@ -196,20 +239,35 @@ You need `gh`, signed in as the owner of the hub and the forks, and
    Actions, sets a read-only default token and `FACTORY_SKIP_PUSH_SYNC=true`,
    creates the labels in the hub and in each fork, and enables the factory
    workflows. It is safe to run again.
-4. Add the two secrets that `bootstrap.sh` lists:
-   - `FACTORY_TOKEN`: a fine-grained token with the owner of the forks as the
-     resource owner, limited to the hub, the API fork and the SDK forks. It
-     needs Read and write on Contents, Issues, Pull requests and Workflows.
-   - `COPILOT_GITHUB_TOKEN`: a fine-grained token with your user account as
-     the resource owner and the account permission Copilot Requests: Read.
-     The port worker uses it for model calls and counts against your Copilot
-     usage.
+4. Add the two secrets that `bootstrap.sh` lists. Both are fine-grained
+   personal access tokens. `bootstrap.sh` prints links that fill in the name,
+   the description and the permissions.
+   - `FACTORY_TOKEN` does every GitHub write: it syncs the forks, pushes sync
+     branches, opens draft PRs in the forks and comments on hub issues and
+     PRs. Pick the owner of the forks as the resource owner, then **Only
+     select repositories**: the hub, the API fork and every SDK fork. Give it
+     Read and write on Contents, Issues, Pull requests and Workflows. Fork
+     sync needs Workflows, because GitHub refuses to sync a fork when
+     upstream changed `.github/workflows`. The agent never sees this token.
+   - `COPILOT_GITHUB_TOKEN` pays for model calls. Pick your user account as
+     the resource owner and give it the account permission Copilot Requests.
+     It needs no repository access. Only the worker's agent and threat
+     detection jobs read it. The account needs an active Copilot seat, and
+     the calls count against that seat. Copilot policy must allow the models
+     in `models.allowed` and the Copilot CLI. gh-aw rejects OAuth tokens
+     (`gho_`).
 
    ```sh
-   gh secret set FACTORY_TOKEN --repo <owner>/<hub>
-   gh secret set COPILOT_GITHUB_TOKEN --repo <owner>/<hub>
+   gh aw secrets set FACTORY_TOKEN --repo <owner>/<hub>
+   gh aw secrets set COPILOT_GITHUB_TOKEN --repo <owner>/<hub>
    ```
-5. Run the fork sync, then open a plan-only issue to check the setup.
+
+   `gh secret set` and the repository's **Settings > Secrets and variables >
+   Actions** page also work. gh-aw's keyless option,
+   `permissions: copilot-requests: write`, needs a repository that an
+   organization owns and pays for, so this lab uses the token.
+5. Run `gh aw doctor --repo <owner>/<hub>` and the fork sync, then open a
+   plan-only issue. The plan lists any missing secret.
 
 ### Repository variables
 
@@ -218,9 +276,11 @@ You need `gh`, signed in as the owner of the hub and the forks, and
 | `FACTORY_PAUSED` | `true` stops every factory workflow, including the port worker |
 | `FACTORY_SKIP_PUSH_SYNC` | `true` stops a push to main from opening sync PRs. `bootstrap.sh` sets it |
 | `FACTORY_REACH` | Overrides `reach` per kind of change |
+| `FACTORY_MODELS` | Overrides the port worker's model per tier and the tier per kind of change |
 | `FACTORY_AGENT_TRACE` | `false` stops the trace workflow and its evidence comments |
 | `SDK_REPO_OVERRIDES` | Points `sync-sdks.yaml` at other SDK repositories |
-| `GH_AW_DEFAULT_MAX_DAILY_AI_CREDITS` | The worker's daily AI credit cap. The default is 1600, and `-1` turns the cap off |
+| `GH_AW_DEFAULT_MAX_DAILY_AI_CREDITS` | The worker's daily AI credit cap. The default is 2400, and `-1` turns the cap off |
+| `GH_AW_DEFAULT_DETECTION_MAX_AI_CREDITS` | The threat detection cap per run. gh-aw's default is 400 |
 
 ## Safety model
 
@@ -230,7 +290,9 @@ You need `gh`, signed in as the owner of the hub and the forks, and
   behind a network allowlist. It asks for writes through safe outputs: one
   draft PR in its target fork and one comment on the hub issue. A threat
   detection job reviews the output before the safe outputs job applies it.
-  Release files and pack test copies are dropped from the patch. A patch that
+  When detection flags the output or fails to finish, the run opens no PR and
+  posts no comment. Release files and pack test copies are dropped from the
+  patch. A patch that
   touches a dependency manifest, an agent instruction file or `.github/`
   still opens, with a review that requests changes.
 - **Verify is advisory.** The verify job runs PR code in the same job as the
@@ -249,9 +311,11 @@ You need `gh`, signed in as the owner of the hub and the forks, and
   generator templates while `FACTORY_TOKEN` is available. Only start them on
   changes you have read. Before this runs upstream, split the sync job into a
   generate job without secrets and a publish job that only pushes.
-- **Cost caps.** Each worker run may spend 400 AI credits, and all worker runs
-  together 1600 in a rolling 24 hours. gh-aw counts the daily total from an
-  Actions cache, so treat the cap as a cost control, not a security boundary.
+- **Cost caps.** Each worker run may spend 600 AI credits, enough for a deep
+  tier run, and all worker runs together 2400 in a rolling 24 hours. Keep
+  `max-ai-credits` a plain number: gh-aw v1.2.2 replaces an expression there
+  with its default of 1000. gh-aw counts the daily total from an Actions
+  cache, so treat the cap as a cost control, not a security boundary.
 - **Loop guards.** The worker refuses a source that is itself a factory PR. The
   watcher skips factory PRs. Factory comments and PR bodies cite upstream work
   as paths without a host, so upstream threads get no "mentioned" events.
