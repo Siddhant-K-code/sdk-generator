@@ -1,0 +1,127 @@
+name: SDK factory trace
+
+# Reads each port worker run with agent-strace and comments what the agent did
+# on the factory PRs the run opened. No model calls.
+#
+# The trace job reads the run's `usage` artifact: gh-aw's session log and its
+# usage numbers. The agent can write parts of that log, so the job treats it as
+# untrusted data. It holds a read-only token, and agent-strace runs with no
+# token at all. The report job holds FACTORY_TOKEN and reads trace.json as
+# data, field by field. It comments only on an open factory PR in a fork whose
+# body carries this run's gh-aw marker. The comment is advisory: it sets no
+# label and gates nothing.
+
+on:
+  workflow_run:
+    workflows: ["SDK factory port worker"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "The gh-aw run to read"
+        type: string
+        required: true
+      repo:
+        description: "owner/name of the run, for a run outside this repository. It then writes only the job summary"
+        type: string
+        default: ""
+
+permissions: {}
+
+concurrency:
+  group: factory-trace-${{ github.event.workflow_run.id || inputs.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  trace:
+    if: >-
+      vars.FACTORY_PAUSED != 'true' && vars.FACTORY_AGENT_TRACE != 'false' &&
+      (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion != 'skipped')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      count: ${{ steps.read.outputs.count }}
+      run_id: ${{ steps.download.outputs.run_id }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # A run that stopped before its conclusion job has no usage artifact.
+      # The read step then reports that the run left no session log.
+      - name: Download the run's usage artifact
+        id: download
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id || inputs.run_id }}
+          RUN_REPO: ${{ github.event.workflow_run.repository.full_name || inputs.repo || github.repository }}
+        run: |
+          if [[ ! "$RUN_ID" =~ ^[1-9][0-9]{0,19}$ || ! "$RUN_REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+            echo "::error::The run id must be a number and the repository owner/name."
+            exit 1
+          fi
+          {
+            echo "run_id=$RUN_ID"
+            echo "run_repo=$RUN_REPO"
+          } >> "$GITHUB_OUTPUT"
+          if ! gh run download "$RUN_ID" --repo "$RUN_REPO" --name usage --dir usage; then
+            echo "::notice::Run $RUN_ID has no usage artifact."
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+
+      - name: Install agent-strace
+        if: hashFiles('usage/aw_session.jsonl') != ''
+        run: >-
+          python3 -m pip install --disable-pip-version-check --no-deps --require-hashes
+          --only-binary :all: -r factory/scripts/agent-strace.txt
+
+      - name: Read the run
+        id: read
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ steps.download.outputs.run_id }}
+          RUN_REPO: ${{ steps.download.outputs.run_repo }}
+        run: python3 factory/scripts/factory_trace.py read --usage usage --out out --run-id "$RUN_ID" --run-repo "$RUN_REPO"
+
+      - name: Upload the trace
+        if: always() && steps.download.outputs.run_id != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: factory-trace-${{ steps.download.outputs.run_id }}
+          path: out/
+          retention-days: 14
+          if-no-files-found: warn
+
+  report:
+    needs: trace
+    if: fromJSON(needs.trace.outputs.count || '0') > 0
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download the trace
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: factory-trace-${{ needs.trace.outputs.run_id }}
+          path: trace
+
+      - name: Post the evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FACTORY_TOKEN: ${{ secrets.FACTORY_TOKEN }}
+          RUN_ID: ${{ needs.trace.outputs.run_id }}
+        run: python3 factory/scripts/factory_trace.py report --trace trace --run-id "$RUN_ID"

@@ -29,7 +29,7 @@ flowchart LR
 | C: generator template change | A pull request, commit or `tree/<branch>` of the generator, here or upstream | `sync-sdks.yaml` regenerates each SDK from that generator ref and opens a sync PR | Same as lane A |
 
 The port worker is the only step that calls a model. The router, the
-scanners, the sync job and the verify job are plain scripts.
+scanners, the sync job, the verify job and the trace job are plain scripts.
 
 Lanes A and C apply only what the change alters. The sync job builds each SDK
 twice, both times on top of the SDK's main: once before the change and once
@@ -51,6 +51,7 @@ from main. A sync run without a change id still regenerates the whole SDK.
 | SDK factory port worker | `factory-port.md`, compiled to `factory-port.lock.yml` | Started by the router or by the sync job | Ports one change into one fork and opens one draft PR |
 | Sync SDKs with generator | `sync-sdks.yaml` | A manual run, or a push to main | Regenerates the SDKs. The factory adds a change id, delta mode, a record of the sync PRs and an optional port step |
 | SDK factory verify | `factory-verify.yml` | After a worker or sync run, every 6 hours, or a manual run | Runs the checks and the acceptance pack on each open factory PR, labels it and reports |
+| SDK factory trace | `factory-trace.yml` | After each port worker run, or a manual run with a run id | Reads the run's session log with agent-strace and comments the agent's evidence on each PR the run opened |
 | SDK factory watcher | `factory-watch.yml` | Daily, or a manual run (a dry run by default) | Opens a `factory:candidate` issue for each feat or fix PR merged upstream that no factory issue covers |
 | SDK factory API drift | `factory-api-drift.yml` | Weekly, or a manual run | Keeps one `factory:api-drift` issue open while the API is ahead of `OPEN_API_REF` in the Makefile |
 | SDK factory fork sync | `factory-sync-forks.yml` | Daily, or a manual run | Brings the hub, the API fork and each SDK fork up to upstream main. Without `FACTORY_TOKEN` it only reports |
@@ -149,6 +150,39 @@ on both. It then sets one label:
 | `factory:needs-human` | Verify could not decide, for example the checks also fail on the base |
 | `factory:verify-failed` | A check or the pack fails because of this PR, or the PR edits the pack's fixed paths |
 
+## Agent evidence
+
+The verify job checks what a PR changed. The trace job shows how the agent got
+there. After each port worker run, `factory-trace.yml` downloads the run's
+`usage` artifact, where gh-aw keeps the session log and its usage numbers.
+[agent-strace](https://github.com/Siddhant-K-code/agent-trace) imports the log
+and runs `review`, `health` and `lint` on it. The report job then posts one
+comment on each factory PR the run opened, or updates it when the run is read
+again. The comment shows:
+
+- the model, the run's AI credits and tokens, and the agent's tool calls
+- agent-strace's review of rationale, scope, validation, stewardship and
+  evidence health, each with a status and a confidence
+- session health and lint counts
+- the commands to replay the session
+
+The comment is advisory. It shows the agent's own session, not CI, and sets no
+label. Cost comes from gh-aw, which counts the AI credits the run spent.
+agent-strace estimates cost from token list prices, so the comment does not
+use it. The comment holds only counts, statuses and agent-strace's short
+review notes, set as code. Prompts and tool output stay in the run's `usage`
+artifact. agent-strace's full reports and its HTML evidence packet stay in the
+`factory-trace-<run id>` artifact for 14 days.
+
+`factory/scripts/agent-strace.txt` pins agent-strace by version and hash.
+Change both together. To read a run again, start the workflow by hand. A run
+in another repository, such as a public gh-aw run, gets only the job summary:
+
+```sh
+gh workflow run factory-trace.yml --repo <owner>/<hub> -f run_id=<run id>
+gh workflow run factory-trace.yml --repo <owner>/<hub> -f run_id=<run id> -f repo=<owner>/<name>
+```
+
 ## Setup
 
 You need `gh`, signed in as the owner of the hub and the forks, and
@@ -184,6 +218,7 @@ You need `gh`, signed in as the owner of the hub and the forks, and
 | `FACTORY_PAUSED` | `true` stops every factory workflow, including the port worker |
 | `FACTORY_SKIP_PUSH_SYNC` | `true` stops a push to main from opening sync PRs. `bootstrap.sh` sets it |
 | `FACTORY_REACH` | Overrides `reach` per kind of change |
+| `FACTORY_AGENT_TRACE` | `false` stops the trace workflow and its evidence comments |
 | `SDK_REPO_OVERRIDES` | Points `sync-sdks.yaml` at other SDK repositories |
 | `GH_AW_DEFAULT_MAX_DAILY_AI_CREDITS` | The worker's daily AI credit cap. The default is 1600, and `-1` turns the cap off |
 
@@ -202,6 +237,12 @@ You need `gh`, signed in as the owner of the hub and the forks, and
   checks, so a PR can change what that job reports. The job gets no secrets.
   The report job holds `FACTORY_TOKEN` and reads the verify results as data,
   field by field. A maintainer still reviews every PR.
+- **The trace reads untrusted data.** The agent can write parts of the session
+  log. The trace job holds a read-only token, and agent-strace runs with no
+  token, in an empty directory. The report job holds `FACTORY_TOKEN`, reads the
+  trace field by field, and comments only on an open factory PR in a fork
+  whose body carries the run's gh-aw marker. gh-aw strips that marker from the
+  agent's own text.
 - **No caches where secrets live.** Jobs that hold `FACTORY_TOKEN` and run SDK
   code restore no Actions cache, and the setup actions run with caching off.
 - **Read unmerged sources first.** Lanes A and C run the source's spec or
