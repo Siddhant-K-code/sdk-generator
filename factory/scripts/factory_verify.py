@@ -130,22 +130,26 @@ def one_pull(gh, registry: dict, owner: str, raw: str) -> tuple:
     return sdk, fork, pr
 
 
+def factory_pulls(gh, registry: dict, owner: str, pr_path: str = "") -> list:
+    """(sdk, fork, pr) for the open factory PRs, or for the one PR given, most recently updated first."""
+    if pr_path:
+        return [one_pull(gh, registry, owner, pr_path)]
+    targets = []
+    for sdk in registry["sdks"]:
+        fork = fork_name(registry, owner, sdk)
+        try:
+            pulls = gh.api(f"repos/{fork}/pulls?state=open&per_page=100", paginate=True) or []
+        except ApiError as err:
+            print(f"::warning::Cannot list the pull requests of {fork} (HTTP {err.status or '?'}).")
+            continue
+        targets += [(sdk, fork, pr) for pr in pulls if factory_pull(pr, fork)]
+    targets.sort(key=lambda target: target[2].get("updated_at") or "", reverse=True)
+    return targets
+
+
 def find(gh, registry: dict, hub: str, *, pr_path: str = "", force: bool = False, cap: int = CAP) -> list:
     """Matrix entries for the PRs to verify, most recently updated first."""
-    owner = hub.split("/")[0]
-    if pr_path:
-        targets = [one_pull(gh, registry, owner, pr_path)]
-    else:
-        targets = []
-        for sdk in registry["sdks"]:
-            fork = fork_name(registry, owner, sdk)
-            try:
-                pulls = gh.api(f"repos/{fork}/pulls?state=open&per_page=100", paginate=True) or []
-            except ApiError as err:
-                print(f"::warning::Cannot list the pull requests of {fork} (HTTP {err.status or '?'}).")
-                continue
-            targets += [(sdk, fork, pr) for pr in pulls if factory_pull(pr, fork)]
-    targets.sort(key=lambda target: target[2].get("updated_at") or "", reverse=True)
+    targets = factory_pulls(gh, registry, hub.split("/")[0], pr_path)
 
     entries, rows = [], []
     for sdk, fork, pr in targets:
@@ -506,10 +510,11 @@ def load_result(path: Path, item: dict, entry: dict) -> dict | None:
         return None
 
 
-def set_label(gh, fork: str, number: int, outcome: str, token: str) -> None:
-    keep = LABELS[outcome]
+def set_label(gh, fork: str, number: int, outcome: str, token: str, *, labels: dict = LABELS) -> None:
+    """Add the outcome's label and remove the other labels of the same set."""
+    keep = labels[outcome]
     gh.api(f"repos/{fork}/issues/{number}/labels", method="POST", fields=[("labels[]", keep)], token=token)
-    for name in LABELS.values():
+    for name in labels.values():
         if name == keep:
             continue
         try:

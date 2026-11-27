@@ -127,6 +127,23 @@ models:
     other-api: standard
     fix: standard
 
+# First-pass reviews of factory PRs. Once verify has a result for a PR head,
+# the verify workflow starts factory-review on it. The reviewer comes from the
+# other model family: `reviewers` maps the author's family (the leading letters
+# of its model name) to a reviewer, and `default` reviews sync PRs and PRs with
+# no known author. Every reviewer must be in `models.allowed`, and Haiku models
+# never review. On a `changes` verdict before the last round, the port worker
+# pushes a fix to the same PR and the next round reviews it. After `rounds`
+# reviews the PR waits for a human. Reviews only comment: humans approve and
+# merge. The FACTORY_REVIEW repository variable set to `off` stops new reviews.
+review:
+  rounds: 2
+  max_comments: 8
+  reviewers:
+    claude: gpt-6.1-sol
+    gpt: claude-opus-5.5
+  default: claude-opus-5.5
+
 # Files the factory never edits by hand in any SDK.
 never_edit:
   - CHANGELOG.md

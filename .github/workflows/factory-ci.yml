@@ -1,7 +1,7 @@
 name: SDK factory CI
 
 # Tests the factory scripts, checks its shell scripts and workflows, and checks
-# that the port worker's lock file matches its source. No secrets.
+# that the lock files of the agentic workflows match their sources. No secrets.
 
 on:
   pull_request:
@@ -64,7 +64,7 @@ jobs:
           done
           "$(go env GOPATH)/bin/actionlint" "${lint[@]}"
 
-      - name: Port worker lock file is current
+      - name: Lock files are current
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

@@ -1,5 +1,5 @@
-# gh-aw-metadata: {"schema_version":"v4","frontmatter_hash":"24e61eeea883d596f8fbc3e5be5fa50f75fc2f2db987a256513981556c7cb8b4","body_hash":"c41dcdee1f56c3b065bf8e5083f48d9f3d5650a65596c717cf1446ac82f55b4d","compiler_version":"v1.2.2","strict":true,"agent_id":"copilot","agent_model":"${{ inputs.model }}","detection_agent_id":"copilot","detection_agent_model":"gpt-6-luna","engine_versions":{"copilot":"1.0.103"}}
-# gh-aw-manifest: {"version":1,"secrets":["COPILOT_GITHUB_TOKEN","FACTORY_TOKEN","GH_AW_CI_TRIGGER_TOKEN","GH_AW_DEFAULT_OTLP_ENDPOINT","GH_AW_DEFAULT_OTLP_HEADERS","GH_AW_GITHUB_MCP_SERVER_TOKEN","GH_AW_GITHUB_TOKEN","GITHUB_TOKEN"],"actions":[{"repo":"actions/checkout","sha":"3d3c42e5aac5ba805825da76410c181273ba90b1","version":"v7.0.1"},{"repo":"actions/download-artifact","sha":"9000827ccba6bdab643e8b6fd33ac0654aef8333","version":"v8.0.2"},{"repo":"actions/github-script","sha":"3a2844b7e9c422d3c10d287c895573f7108da1b3","version":"v9.0.0"},{"repo":"actions/setup-dotnet","sha":"0f4a354dd5547a28c70b7853dbd95d5b67886e73","version":"v6.1.0"},{"repo":"actions/setup-go","sha":"b7ad1dad31e06c5925ef5d2fc7ad053ef454303e","version":"v7.0.0"},{"repo":"actions/setup-java","sha":"77dd5b2ce225ea11469928ac317850245a74ae78","version":"v6.2.0"},{"repo":"actions/setup-node","sha":"949feb2413d6458794dcd2491c4babbbce0c15c1","version":"v7.1.0"},{"repo":"actions/setup-python","sha":"6d4fd22b20465ccc0f7354476588e8df7c9ca0e0","version":"v7.1.0"},{"repo":"actions/upload-artifact","sha":"cf430e030ddbb5b0abf93d22962f4752f3646cd9","version":"v7.0.2"},{"repo":"astral-sh/setup-uv","sha":"68559e99cc807c1eb7e9238fd43a15bba460eec2","version":"v10.3.3"},{"repo":"github/gh-aw-actions/setup","sha":"53d0749e19424a918acd82b4d140264ce48f2f14","version":"v1.2.2"}],"containers":[{"image":"ghcr.io/github/gh-aw-firewall/agent:0.29.11","digest":"sha256:8774a73c351395b41d2ad0af4ddb4689007c67de3cd08bd9f43bb8a0e300690e","pinned_image":"ghcr.io/github/gh-aw-firewall/agent:0.29.11@sha256:8774a73c351395b41d2ad0af4ddb4689007c67de3cd08bd9f43bb8a0e300690e"},{"image":"ghcr.io/github/gh-aw-firewall/api-proxy:0.29.11","digest":"sha256:88d2d0e315a504d93fd4fb8847fd0f6b7f4469f41a6fc6047b3dc9654c56ab2c","pinned_image":"ghcr.io/github/gh-aw-firewall/api-proxy:0.29.11@sha256:88d2d0e315a504d93fd4fb8847fd0f6b7f4469f41a6fc6047b3dc9654c56ab2c"},{"image":"ghcr.io/github/gh-aw-firewall/squid:0.29.11","digest":"sha256:861739ecf924dd2db5e5fb652db2ad82aaafd1615623297ddabc8f41a36b2847","pinned_image":"ghcr.io/github/gh-aw-firewall/squid:0.29.11@sha256:861739ecf924dd2db5e5fb652db2ad82aaafd1615623297ddabc8f41a36b2847"},{"image":"ghcr.io/github/gh-aw-mcpg:v0.5.6","digest":"sha256:342cd624e1f179d91be2de7a146fc4f387092e62e6c8a47506d7932e113d2311","pinned_image":"ghcr.io/github/gh-aw-mcpg:v0.5.6@sha256:342cd624e1f179d91be2de7a146fc4f387092e62e6c8a47506d7932e113d2311"},{"image":"ghcr.io/github/gh-aw-node","digest":"sha256:8735428c2d4e602f90781ba0c571c400e8ff93c7ee1508a75d71f87e34e415cc","pinned_image":"ghcr.io/github/gh-aw-node@sha256:8735428c2d4e602f90781ba0c571c400e8ff93c7ee1508a75d71f87e34e415cc"},{"image":"ghcr.io/github/github-mcp-server:v2.1.0","digest":"sha256:f6056fc10bfffcc8c81a6417a2e9ca12808647e8dd6049642a4feaadee0e0f8a","pinned_image":"ghcr.io/github/github-mcp-server:v2.1.0@sha256:f6056fc10bfffcc8c81a6417a2e9ca12808647e8dd6049642a4feaadee0e0f8a"}],"mcp_servers":[{"name":"github","tools":["get_commit","get_file_contents","get_latest_release","get_pull_request","get_pull_request_comments","get_pull_request_diff","get_pull_request_files","get_pull_request_review_comments","get_pull_request_reviews","get_pull_request_status","get_release_by_tag","get_tag","issue_read","list_branches","list_commits","list_issue_types","list_issues","list_pull_requests","list_releases","list_starred_repositories","list_tags","pull_request_read","search_code","search_issues","search_pull_requests","search_repositories"]},{"name":"safeoutputs","tools":["add_comment","create_pull_request","noop","report_incomplete","report_missing_data","report_missing_tool"]}],"threat_detection":{"mode":"enabled"},"admission":false,"agent_metadata":{}}
+# gh-aw-metadata: {"schema_version":"v4","frontmatter_hash":"e1c34e49c79c81a8ad7404111968d2d8e426aa3cb571b08171ec65144d86084d","body_hash":"556d60118357bc177968c2b4a5363291ec62aea7831a545ee60d3a389ea05a9e","compiler_version":"v1.2.2","strict":true,"agent_id":"copilot","agent_model":"${{ inputs.model }}","detection_agent_id":"copilot","detection_agent_model":"gpt-6-luna","engine_versions":{"copilot":"1.0.103"}}
+# gh-aw-manifest: {"version":1,"secrets":["COPILOT_GITHUB_TOKEN","FACTORY_TOKEN","GH_AW_CI_TRIGGER_TOKEN","GH_AW_DEFAULT_OTLP_ENDPOINT","GH_AW_DEFAULT_OTLP_HEADERS","GH_AW_GITHUB_MCP_SERVER_TOKEN","GH_AW_GITHUB_TOKEN","GITHUB_TOKEN"],"actions":[{"repo":"actions/checkout","sha":"3d3c42e5aac5ba805825da76410c181273ba90b1","version":"v7.0.1"},{"repo":"actions/download-artifact","sha":"9000827ccba6bdab643e8b6fd33ac0654aef8333","version":"v8.0.2"},{"repo":"actions/github-script","sha":"3a2844b7e9c422d3c10d287c895573f7108da1b3","version":"v9.0.0"},{"repo":"actions/setup-dotnet","sha":"0f4a354dd5547a28c70b7853dbd95d5b67886e73","version":"v6.1.0"},{"repo":"actions/setup-go","sha":"b7ad1dad31e06c5925ef5d2fc7ad053ef454303e","version":"v7.0.0"},{"repo":"actions/setup-java","sha":"77dd5b2ce225ea11469928ac317850245a74ae78","version":"v6.2.0"},{"repo":"actions/setup-node","sha":"949feb2413d6458794dcd2491c4babbbce0c15c1","version":"v7.1.0"},{"repo":"actions/setup-python","sha":"6d4fd22b20465ccc0f7354476588e8df7c9ca0e0","version":"v7.1.0"},{"repo":"actions/upload-artifact","sha":"cf430e030ddbb5b0abf93d22962f4752f3646cd9","version":"v7.0.2"},{"repo":"astral-sh/setup-uv","sha":"68559e99cc807c1eb7e9238fd43a15bba460eec2","version":"v10.3.3"},{"repo":"github/gh-aw-actions/setup","sha":"53d0749e19424a918acd82b4d140264ce48f2f14","version":"v1.2.2"}],"containers":[{"image":"ghcr.io/github/gh-aw-firewall/agent:0.29.11","digest":"sha256:8774a73c351395b41d2ad0af4ddb4689007c67de3cd08bd9f43bb8a0e300690e","pinned_image":"ghcr.io/github/gh-aw-firewall/agent:0.29.11@sha256:8774a73c351395b41d2ad0af4ddb4689007c67de3cd08bd9f43bb8a0e300690e"},{"image":"ghcr.io/github/gh-aw-firewall/api-proxy:0.29.11","digest":"sha256:88d2d0e315a504d93fd4fb8847fd0f6b7f4469f41a6fc6047b3dc9654c56ab2c","pinned_image":"ghcr.io/github/gh-aw-firewall/api-proxy:0.29.11@sha256:88d2d0e315a504d93fd4fb8847fd0f6b7f4469f41a6fc6047b3dc9654c56ab2c"},{"image":"ghcr.io/github/gh-aw-firewall/squid:0.29.11","digest":"sha256:861739ecf924dd2db5e5fb652db2ad82aaafd1615623297ddabc8f41a36b2847","pinned_image":"ghcr.io/github/gh-aw-firewall/squid:0.29.11@sha256:861739ecf924dd2db5e5fb652db2ad82aaafd1615623297ddabc8f41a36b2847"},{"image":"ghcr.io/github/gh-aw-mcpg:v0.5.6","digest":"sha256:342cd624e1f179d91be2de7a146fc4f387092e62e6c8a47506d7932e113d2311","pinned_image":"ghcr.io/github/gh-aw-mcpg:v0.5.6@sha256:342cd624e1f179d91be2de7a146fc4f387092e62e6c8a47506d7932e113d2311"},{"image":"ghcr.io/github/gh-aw-node","digest":"sha256:8735428c2d4e602f90781ba0c571c400e8ff93c7ee1508a75d71f87e34e415cc","pinned_image":"ghcr.io/github/gh-aw-node@sha256:8735428c2d4e602f90781ba0c571c400e8ff93c7ee1508a75d71f87e34e415cc"},{"image":"ghcr.io/github/github-mcp-server:v2.1.0","digest":"sha256:f6056fc10bfffcc8c81a6417a2e9ca12808647e8dd6049642a4feaadee0e0f8a","pinned_image":"ghcr.io/github/github-mcp-server:v2.1.0@sha256:f6056fc10bfffcc8c81a6417a2e9ca12808647e8dd6049642a4feaadee0e0f8a"}],"mcp_servers":[{"name":"github","tools":["get_commit","get_file_contents","get_latest_release","get_pull_request","get_pull_request_comments","get_pull_request_diff","get_pull_request_files","get_pull_request_review_comments","get_pull_request_reviews","get_pull_request_status","get_release_by_tag","get_tag","issue_read","list_branches","list_commits","list_issue_types","list_issues","list_pull_requests","list_releases","list_starred_repositories","list_tags","pull_request_read","search_code","search_issues","search_pull_requests","search_repositories"]},{"name":"safeoutputs","tools":["add_comment","create_pull_request","noop","push_to_pull_request_branch","report_incomplete","report_missing_data","report_missing_tool"]}],"threat_detection":{"mode":"enabled"},"admission":false,"agent_metadata":{}}
 # This file was automatically generated by gh-aw (v1.2.2). DO NOT EDIT. To debug this workflow, load the skill at https://github.com/github/gh-aw/blob/main/debug.md
 #
 #    ___                   _   _
@@ -89,6 +89,11 @@ on:
       notes:
         default: ""
         description: Extra maintainer guidance (optional)
+        required: false
+        type: string
+      revise_pr:
+        default: ""
+        description: Factory PR number to revise after a review asked for changes (set by the reviewer)
         required: false
         type: string
       sdk:
@@ -336,7 +341,7 @@ jobs:
         with:
           github-token: no-authentication
           script: |
-            const promptEnvironment = new Set(["GH_AW_ACTIONS_DIR","GH_AW_EXPR_76DF9333","GH_AW_EXPR_77C1A4D2","GH_AW_EXPR_7C248226","GH_AW_EXPR_C19C384F","GH_AW_GITHUB_ACTOR","GH_AW_GITHUB_EVENT_INPUTS_BASE_BRANCH","GH_AW_GITHUB_EVENT_INPUTS_CHANGE_ID","GH_AW_GITHUB_EVENT_INPUTS_NOTES","GH_AW_GITHUB_EVENT_INPUTS_SDK","GH_AW_GITHUB_EVENT_INPUTS_SOURCE","GH_AW_GITHUB_EVENT_INPUTS_TARGET_REPO","GH_AW_GITHUB_EVENT_INPUTS_TRACKING_ISSUE","GH_AW_GITHUB_REPOSITORY","GH_AW_GITHUB_RUN_ID","GH_AW_GITHUB_WORKSPACE","GH_AW_PROMPT","GH_AW_PROMPT_CONFIG","GH_AW_PROMPT_CONTENT_0000","GH_AW_PROMPT_CONTENT_0001","GH_AW_PROMPT_CONTENT_0002","GH_AW_PROMPT_CONTENT_0003","GH_AW_PROMPT_CONTENT_0004","GH_AW_SAFE_OUTPUTS","GITHUB_ACTION","GITHUB_ACTOR","GITHUB_API_URL","GITHUB_EVENT_NAME","GITHUB_EVENT_PATH","GITHUB_GRAPHQL_URL","GITHUB_JOB","GITHUB_OUTPUT","GITHUB_REF","GITHUB_REPOSITORY","GITHUB_RUN_ATTEMPT","GITHUB_RUN_ID","GITHUB_RUN_NUMBER","GITHUB_SERVER_URL","GITHUB_SHA","GITHUB_STEP_SUMMARY","GITHUB_WORKFLOW","GITHUB_WORKSPACE","PATH","RUNNER_ARCH","RUNNER_OS","RUNNER_TEMP"]);
+            const promptEnvironment = new Set(["GH_AW_ACTIONS_DIR","GH_AW_EXPR_76DF9333","GH_AW_EXPR_77C1A4D2","GH_AW_EXPR_7C248226","GH_AW_EXPR_C19C384F","GH_AW_GITHUB_ACTOR","GH_AW_GITHUB_EVENT_INPUTS_BASE_BRANCH","GH_AW_GITHUB_EVENT_INPUTS_CHANGE_ID","GH_AW_GITHUB_EVENT_INPUTS_MODEL","GH_AW_GITHUB_EVENT_INPUTS_NOTES","GH_AW_GITHUB_EVENT_INPUTS_REVISE_PR","GH_AW_GITHUB_EVENT_INPUTS_SDK","GH_AW_GITHUB_EVENT_INPUTS_SOURCE","GH_AW_GITHUB_EVENT_INPUTS_TARGET_REPO","GH_AW_GITHUB_EVENT_INPUTS_TRACKING_ISSUE","GH_AW_GITHUB_REPOSITORY","GH_AW_GITHUB_RUN_ID","GH_AW_GITHUB_WORKSPACE","GH_AW_PROMPT","GH_AW_PROMPT_CONFIG","GH_AW_PROMPT_CONTENT_0000","GH_AW_PROMPT_CONTENT_0001","GH_AW_PROMPT_CONTENT_0002","GH_AW_PROMPT_CONTENT_0003","GH_AW_PROMPT_CONTENT_0004","GH_AW_SAFE_OUTPUTS","GITHUB_ACTION","GITHUB_ACTOR","GITHUB_API_URL","GITHUB_EVENT_NAME","GITHUB_EVENT_PATH","GITHUB_GRAPHQL_URL","GITHUB_JOB","GITHUB_OUTPUT","GITHUB_REF","GITHUB_REPOSITORY","GITHUB_RUN_ATTEMPT","GITHUB_RUN_ID","GITHUB_RUN_NUMBER","GITHUB_SERVER_URL","GITHUB_SHA","GITHUB_STEP_SUMMARY","GITHUB_WORKFLOW","GITHUB_WORKSPACE","PATH","RUNNER_ARCH","RUNNER_OS","RUNNER_TEMP"]);
             for (const name of Object.keys(process.env)) {
               if (!promptEnvironment.has(name)) delete process.env[name];
             }
@@ -353,7 +358,9 @@ jobs:
           GH_AW_GITHUB_ACTOR: ${{ github.actor }}
           GH_AW_GITHUB_EVENT_INPUTS_BASE_BRANCH: ${{ github.event.inputs.base_branch }}
           GH_AW_GITHUB_EVENT_INPUTS_CHANGE_ID: ${{ github.event.inputs.change_id }}
+          GH_AW_GITHUB_EVENT_INPUTS_MODEL: ${{ github.event.inputs.model }}
           GH_AW_GITHUB_EVENT_INPUTS_NOTES: ${{ github.event.inputs.notes }}
+          GH_AW_GITHUB_EVENT_INPUTS_REVISE_PR: ${{ github.event.inputs.revise_pr }}
           GH_AW_GITHUB_EVENT_INPUTS_SDK: ${{ github.event.inputs.sdk }}
           GH_AW_GITHUB_EVENT_INPUTS_SOURCE: ${{ github.event.inputs.source }}
           GH_AW_GITHUB_EVENT_INPUTS_TARGET_REPO: ${{ github.event.inputs.target_repo }}
@@ -366,12 +373,12 @@ jobs:
           GH_AW_OTLP_LOGS_ENABLED: ""
           GH_AW_OTLP_LOGS_MAX_BYTES: ""
           GH_AW_PROMPT: ${{ runner.temp }}/gh-aw/aw-prompts/prompt.txt
-          GH_AW_PROMPT_CONFIG: "{\"items\":[{\"content_env\":\"GH_AW_PROMPT_CONTENT_0000\"},{\"file\":\"xpia.md\"},{\"file\":\"temp_folder_prompt.md\"},{\"file\":\"markdown.md\"},{\"file\":\"safe_outputs_mcp_transport_prompt.md\"},{\"file\":\"safe_outputs_prompt.md\"},{\"content_env\":\"GH_AW_PROMPT_CONTENT_0001\"},{\"file\":\"safe_outputs_create_pull_request.md\"},{\"content_env\":\"GH_AW_PROMPT_CONTENT_0002\"},{\"file\":\"mcp_cli_tools_with_safeoutputs_prompt.md\"},{\"content_env\":\"GH_AW_PROMPT_CONTENT_0003\"},{\"file\":\"github_mcp_tools_with_safeoutputs_prompt.md\"},{\"content_env\":\"GH_AW_PROMPT_CONTENT_0004\"},{\"author_file\":\".github/workflows/factory-port.md\"}],\"system_item_count\":13,\"author_expressions\":{\"github.event.inputs.base_branch\":\"GH_AW_GITHUB_EVENT_INPUTS_BASE_BRANCH\",\"github.event.inputs.change_id\":\"GH_AW_GITHUB_EVENT_INPUTS_CHANGE_ID\",\"github.event.inputs.notes\":\"GH_AW_GITHUB_EVENT_INPUTS_NOTES\",\"github.event.inputs.sdk\":\"GH_AW_GITHUB_EVENT_INPUTS_SDK\",\"github.event.inputs.source\":\"GH_AW_GITHUB_EVENT_INPUTS_SOURCE\",\"github.event.inputs.target_repo\":\"GH_AW_GITHUB_EVENT_INPUTS_TARGET_REPO\",\"github.event.inputs.tracking_issue\":\"GH_AW_GITHUB_EVENT_INPUTS_TRACKING_ISSUE\",\"github.repository\":\"GH_AW_GITHUB_REPOSITORY\"}}"
+          GH_AW_PROMPT_CONFIG: "{\"items\":[{\"content_env\":\"GH_AW_PROMPT_CONTENT_0000\"},{\"file\":\"xpia.md\"},{\"file\":\"temp_folder_prompt.md\"},{\"file\":\"markdown.md\"},{\"file\":\"safe_outputs_mcp_transport_prompt.md\"},{\"file\":\"safe_outputs_prompt.md\"},{\"content_env\":\"GH_AW_PROMPT_CONTENT_0001\"},{\"file\":\"safe_outputs_create_pull_request.md\"},{\"file\":\"safe_outputs_push_to_pr_branch.md\"},{\"content_env\":\"GH_AW_PROMPT_CONTENT_0002\"},{\"file\":\"mcp_cli_tools_with_safeoutputs_prompt.md\"},{\"content_env\":\"GH_AW_PROMPT_CONTENT_0003\"},{\"file\":\"github_mcp_tools_with_safeoutputs_prompt.md\"},{\"content_env\":\"GH_AW_PROMPT_CONTENT_0004\"},{\"author_file\":\".github/workflows/factory-port.md\"}],\"system_item_count\":14,\"author_expressions\":{\"github.event.inputs.base_branch\":\"GH_AW_GITHUB_EVENT_INPUTS_BASE_BRANCH\",\"github.event.inputs.change_id\":\"GH_AW_GITHUB_EVENT_INPUTS_CHANGE_ID\",\"github.event.inputs.model\":\"GH_AW_GITHUB_EVENT_INPUTS_MODEL\",\"github.event.inputs.notes\":\"GH_AW_GITHUB_EVENT_INPUTS_NOTES\",\"github.event.inputs.revise_pr\":\"GH_AW_GITHUB_EVENT_INPUTS_REVISE_PR\",\"github.event.inputs.sdk\":\"GH_AW_GITHUB_EVENT_INPUTS_SDK\",\"github.event.inputs.source\":\"GH_AW_GITHUB_EVENT_INPUTS_SOURCE\",\"github.event.inputs.target_repo\":\"GH_AW_GITHUB_EVENT_INPUTS_TARGET_REPO\",\"github.event.inputs.tracking_issue\":\"GH_AW_GITHUB_EVENT_INPUTS_TRACKING_ISSUE\",\"github.repository\":\"GH_AW_GITHUB_REPOSITORY\"}}"
           GH_AW_PROMPT_CONTENT_0000: |
             <system>
           GH_AW_PROMPT_CONTENT_0001: |
             <safe-output-tools>
-            Tools: add_comment, create_pull_request, report_missing_tool, report_missing_data, noop(max:2)
+            Tools: add_comment, create_pull_request, push_to_pull_request_branch, report_missing_tool, report_missing_data, noop(max:2)
           GH_AW_PROMPT_CONTENT_0002: |
             </safe-output-tools>
           GH_AW_PROMPT_CONTENT_0003: |+
@@ -429,14 +436,14 @@ jobs:
         with:
           github-token: no-authentication
           script: |
-            const promptEnvironment = new Set(["GH_AW_ACTIONS_DIR","GH_AW_ENGINE_ID","GH_AW_EXPR_76DF9333","GH_AW_EXPR_77C1A4D2","GH_AW_EXPR_7C248226","GH_AW_EXPR_C19C384F","GH_AW_GITHUB_ACTOR","GH_AW_GITHUB_EVENT_INPUTS_BASE_BRANCH","GH_AW_GITHUB_EVENT_INPUTS_CHANGE_ID","GH_AW_GITHUB_EVENT_INPUTS_NOTES","GH_AW_GITHUB_EVENT_INPUTS_SDK","GH_AW_GITHUB_EVENT_INPUTS_SOURCE","GH_AW_GITHUB_EVENT_INPUTS_TARGET_REPO","GH_AW_GITHUB_EVENT_INPUTS_TRACKING_ISSUE","GH_AW_GITHUB_REPOSITORY","GH_AW_GITHUB_RUN_ID","GH_AW_GITHUB_WORKSPACE","GH_AW_MCP_CLI_SERVERS_LIST","GH_AW_PROMPT","GH_AW_SKILL_DIR","GH_AW_SKILL_EXT","GH_AW_SUB_AGENT_DIR","GH_AW_SUB_AGENT_EXT","GITHUB_ACTION","GITHUB_ACTOR","GITHUB_API_URL","GITHUB_EVENT_NAME","GITHUB_EVENT_PATH","GITHUB_GRAPHQL_URL","GITHUB_JOB","GITHUB_OUTPUT","GITHUB_REF","GITHUB_REPOSITORY","GITHUB_RUN_ATTEMPT","GITHUB_RUN_ID","GITHUB_RUN_NUMBER","GITHUB_SERVER_URL","GITHUB_SHA","GITHUB_STEP_SUMMARY","GITHUB_WORKFLOW","GITHUB_WORKSPACE","PATH","RUNNER_ARCH","RUNNER_OS","RUNNER_TEMP"]);
+            const promptEnvironment = new Set(["GH_AW_ACTIONS_DIR","GH_AW_ENGINE_ID","GH_AW_EXPR_76DF9333","GH_AW_EXPR_77C1A4D2","GH_AW_EXPR_7C248226","GH_AW_EXPR_C19C384F","GH_AW_GITHUB_ACTOR","GH_AW_GITHUB_EVENT_INPUTS_BASE_BRANCH","GH_AW_GITHUB_EVENT_INPUTS_CHANGE_ID","GH_AW_GITHUB_EVENT_INPUTS_MODEL","GH_AW_GITHUB_EVENT_INPUTS_NOTES","GH_AW_GITHUB_EVENT_INPUTS_REVISE_PR","GH_AW_GITHUB_EVENT_INPUTS_SDK","GH_AW_GITHUB_EVENT_INPUTS_SOURCE","GH_AW_GITHUB_EVENT_INPUTS_TARGET_REPO","GH_AW_GITHUB_EVENT_INPUTS_TRACKING_ISSUE","GH_AW_GITHUB_REPOSITORY","GH_AW_GITHUB_RUN_ID","GH_AW_GITHUB_WORKSPACE","GH_AW_MCP_CLI_SERVERS_LIST","GH_AW_PROMPT","GH_AW_SKILL_DIR","GH_AW_SKILL_EXT","GH_AW_SUB_AGENT_DIR","GH_AW_SUB_AGENT_EXT","GITHUB_ACTION","GITHUB_ACTOR","GITHUB_API_URL","GITHUB_EVENT_NAME","GITHUB_EVENT_PATH","GITHUB_GRAPHQL_URL","GITHUB_JOB","GITHUB_OUTPUT","GITHUB_REF","GITHUB_REPOSITORY","GITHUB_RUN_ATTEMPT","GITHUB_RUN_ID","GITHUB_RUN_NUMBER","GITHUB_SERVER_URL","GITHUB_SHA","GITHUB_STEP_SUMMARY","GITHUB_WORKFLOW","GITHUB_WORKSPACE","PATH","RUNNER_ARCH","RUNNER_OS","RUNNER_TEMP"]);
             for (const name of Object.keys(process.env)) {
               if (!promptEnvironment.has(name)) delete process.env[name];
             }
             global.core = core;
             global.context = context;
             const { main } = require(process.env.GH_AW_ACTIONS_DIR + '/interpolate_prompt.cjs');
-            await main({ authorExpressions: {"github.event.inputs.base_branch":"GH_AW_GITHUB_EVENT_INPUTS_BASE_BRANCH","github.event.inputs.change_id":"GH_AW_GITHUB_EVENT_INPUTS_CHANGE_ID","github.event.inputs.notes":"GH_AW_GITHUB_EVENT_INPUTS_NOTES","github.event.inputs.sdk":"GH_AW_GITHUB_EVENT_INPUTS_SDK","github.event.inputs.source":"GH_AW_GITHUB_EVENT_INPUTS_SOURCE","github.event.inputs.target_repo":"GH_AW_GITHUB_EVENT_INPUTS_TARGET_REPO","github.event.inputs.tracking_issue":"GH_AW_GITHUB_EVENT_INPUTS_TRACKING_ISSUE","github.repository":"GH_AW_GITHUB_REPOSITORY"} });
+            await main({ authorExpressions: {"github.event.inputs.base_branch":"GH_AW_GITHUB_EVENT_INPUTS_BASE_BRANCH","github.event.inputs.change_id":"GH_AW_GITHUB_EVENT_INPUTS_CHANGE_ID","github.event.inputs.model":"GH_AW_GITHUB_EVENT_INPUTS_MODEL","github.event.inputs.notes":"GH_AW_GITHUB_EVENT_INPUTS_NOTES","github.event.inputs.revise_pr":"GH_AW_GITHUB_EVENT_INPUTS_REVISE_PR","github.event.inputs.sdk":"GH_AW_GITHUB_EVENT_INPUTS_SDK","github.event.inputs.source":"GH_AW_GITHUB_EVENT_INPUTS_SOURCE","github.event.inputs.target_repo":"GH_AW_GITHUB_EVENT_INPUTS_TARGET_REPO","github.event.inputs.tracking_issue":"GH_AW_GITHUB_EVENT_INPUTS_TRACKING_ISSUE","github.repository":"GH_AW_GITHUB_REPOSITORY"} });
         env:
           GH_AW_ACTIONS_DIR: ${{ runner.temp }}/gh-aw/actions
           GH_AW_ENGINE_ID: copilot
@@ -447,7 +454,9 @@ jobs:
           GH_AW_GITHUB_ACTOR: ${{ github.actor }}
           GH_AW_GITHUB_EVENT_INPUTS_BASE_BRANCH: ${{ github.event.inputs.base_branch }}
           GH_AW_GITHUB_EVENT_INPUTS_CHANGE_ID: ${{ github.event.inputs.change_id }}
+          GH_AW_GITHUB_EVENT_INPUTS_MODEL: ${{ github.event.inputs.model }}
           GH_AW_GITHUB_EVENT_INPUTS_NOTES: ${{ github.event.inputs.notes }}
+          GH_AW_GITHUB_EVENT_INPUTS_REVISE_PR: ${{ github.event.inputs.revise_pr }}
           GH_AW_GITHUB_EVENT_INPUTS_SDK: ${{ github.event.inputs.sdk }}
           GH_AW_GITHUB_EVENT_INPUTS_SOURCE: ${{ github.event.inputs.source }}
           GH_AW_GITHUB_EVENT_INPUTS_TARGET_REPO: ${{ github.event.inputs.target_repo }}
@@ -477,7 +486,7 @@ jobs:
         with:
           github-token: no-authentication
           script: |
-            const promptEnvironment = new Set(["GH_AW_ACTIONS_DIR","GH_AW_EXPR_76DF9333","GH_AW_EXPR_77C1A4D2","GH_AW_EXPR_7C248226","GH_AW_EXPR_C19C384F","GH_AW_GITHUB_ACTOR","GH_AW_GITHUB_EVENT_INPUTS_BASE_BRANCH","GH_AW_GITHUB_EVENT_INPUTS_CHANGE_ID","GH_AW_GITHUB_EVENT_INPUTS_NOTES","GH_AW_GITHUB_EVENT_INPUTS_SDK","GH_AW_GITHUB_EVENT_INPUTS_SOURCE","GH_AW_GITHUB_EVENT_INPUTS_TARGET_REPO","GH_AW_GITHUB_EVENT_INPUTS_TRACKING_ISSUE","GH_AW_GITHUB_REPOSITORY","GH_AW_GITHUB_RUN_ID","GH_AW_GITHUB_WORKSPACE","GH_AW_MCP_CLI_SERVERS_LIST","GH_AW_PROMPT","GITHUB_ACTION","GITHUB_ACTOR","GITHUB_API_URL","GITHUB_EVENT_NAME","GITHUB_EVENT_PATH","GITHUB_GRAPHQL_URL","GITHUB_JOB","GITHUB_OUTPUT","GITHUB_REF","GITHUB_REPOSITORY","GITHUB_RUN_ATTEMPT","GITHUB_RUN_ID","GITHUB_RUN_NUMBER","GITHUB_SERVER_URL","GITHUB_SHA","GITHUB_STEP_SUMMARY","GITHUB_WORKFLOW","GITHUB_WORKSPACE","PATH","RUNNER_ARCH","RUNNER_OS","RUNNER_TEMP"]);
+            const promptEnvironment = new Set(["GH_AW_ACTIONS_DIR","GH_AW_EXPR_76DF9333","GH_AW_EXPR_77C1A4D2","GH_AW_EXPR_7C248226","GH_AW_EXPR_C19C384F","GH_AW_GITHUB_ACTOR","GH_AW_GITHUB_EVENT_INPUTS_BASE_BRANCH","GH_AW_GITHUB_EVENT_INPUTS_CHANGE_ID","GH_AW_GITHUB_EVENT_INPUTS_MODEL","GH_AW_GITHUB_EVENT_INPUTS_NOTES","GH_AW_GITHUB_EVENT_INPUTS_REVISE_PR","GH_AW_GITHUB_EVENT_INPUTS_SDK","GH_AW_GITHUB_EVENT_INPUTS_SOURCE","GH_AW_GITHUB_EVENT_INPUTS_TARGET_REPO","GH_AW_GITHUB_EVENT_INPUTS_TRACKING_ISSUE","GH_AW_GITHUB_REPOSITORY","GH_AW_GITHUB_RUN_ID","GH_AW_GITHUB_WORKSPACE","GH_AW_MCP_CLI_SERVERS_LIST","GH_AW_PROMPT","GITHUB_ACTION","GITHUB_ACTOR","GITHUB_API_URL","GITHUB_EVENT_NAME","GITHUB_EVENT_PATH","GITHUB_GRAPHQL_URL","GITHUB_JOB","GITHUB_OUTPUT","GITHUB_REF","GITHUB_REPOSITORY","GITHUB_RUN_ATTEMPT","GITHUB_RUN_ID","GITHUB_RUN_NUMBER","GITHUB_SERVER_URL","GITHUB_SHA","GITHUB_STEP_SUMMARY","GITHUB_WORKFLOW","GITHUB_WORKSPACE","PATH","RUNNER_ARCH","RUNNER_OS","RUNNER_TEMP"]);
             for (const name of Object.keys(process.env)) {
               if (!promptEnvironment.has(name)) delete process.env[name];
             }
@@ -497,7 +506,9 @@ jobs:
                 GH_AW_GITHUB_ACTOR: process.env.GH_AW_GITHUB_ACTOR,
                 GH_AW_GITHUB_EVENT_INPUTS_BASE_BRANCH: process.env.GH_AW_GITHUB_EVENT_INPUTS_BASE_BRANCH,
                 GH_AW_GITHUB_EVENT_INPUTS_CHANGE_ID: process.env.GH_AW_GITHUB_EVENT_INPUTS_CHANGE_ID,
+                GH_AW_GITHUB_EVENT_INPUTS_MODEL: process.env.GH_AW_GITHUB_EVENT_INPUTS_MODEL,
                 GH_AW_GITHUB_EVENT_INPUTS_NOTES: process.env.GH_AW_GITHUB_EVENT_INPUTS_NOTES,
+                GH_AW_GITHUB_EVENT_INPUTS_REVISE_PR: process.env.GH_AW_GITHUB_EVENT_INPUTS_REVISE_PR,
                 GH_AW_GITHUB_EVENT_INPUTS_SDK: process.env.GH_AW_GITHUB_EVENT_INPUTS_SDK,
                 GH_AW_GITHUB_EVENT_INPUTS_SOURCE: process.env.GH_AW_GITHUB_EVENT_INPUTS_SOURCE,
                 GH_AW_GITHUB_EVENT_INPUTS_TARGET_REPO: process.env.GH_AW_GITHUB_EVENT_INPUTS_TARGET_REPO,
@@ -517,7 +528,9 @@ jobs:
           GH_AW_GITHUB_ACTOR: ${{ github.actor }}
           GH_AW_GITHUB_EVENT_INPUTS_BASE_BRANCH: ${{ github.event.inputs.base_branch }}
           GH_AW_GITHUB_EVENT_INPUTS_CHANGE_ID: ${{ github.event.inputs.change_id }}
+          GH_AW_GITHUB_EVENT_INPUTS_MODEL: ${{ github.event.inputs.model }}
           GH_AW_GITHUB_EVENT_INPUTS_NOTES: ${{ github.event.inputs.notes }}
+          GH_AW_GITHUB_EVENT_INPUTS_REVISE_PR: ${{ github.event.inputs.revise_pr }}
           GH_AW_GITHUB_EVENT_INPUTS_SDK: ${{ github.event.inputs.sdk }}
           GH_AW_GITHUB_EVENT_INPUTS_SOURCE: ${{ github.event.inputs.source }}
           GH_AW_GITHUB_EVENT_INPUTS_TARGET_REPO: ${{ github.event.inputs.target_repo }}
@@ -764,10 +777,11 @@ jobs:
       - env:
           CHANGE_ID: ${{ github.event.inputs.change_id }}
           OWNER: ${{ github.repository_owner }}
+          REVISE_PR: ${{ github.event.inputs.revise_pr }}
           SDK: ${{ github.event.inputs.sdk }}
           TARGET_REPO: ${{ github.event.inputs.target_repo }}
         name: Validate target against the registry
-        run: "set -euo pipefail\nrepo=\"$(yq -r \".sdks.\\\"${SDK}\\\".repo\" factory/sdks.yaml)\"\nif [ -z \"$repo\" ] || [ \"$repo\" = \"null\" ]; then\n  echo \"::error::SDK '${SDK}' is not in factory/sdks.yaml\"; exit 1\nfi\nif [ \"${TARGET_REPO}\" != \"${OWNER}/${repo}\" ]; then\n  echo \"::error::target_repo must be ${OWNER}/${repo} for sdk ${SDK}, got ${TARGET_REPO}\"; exit 1\nfi\nif ! printf '%s' \"${CHANGE_ID}\" | grep -Eq '^[a-z0-9][a-z0-9-]{1,48}$'; then\n  echo \"::error::change_id must be kebab-case, 2 to 49 characters\"; exit 1\nfi\nmkdir -p /tmp/gh-aw/factory\nyq -o=json \".sdks.\\\"${SDK}\\\"\" factory/sdks.yaml > /tmp/gh-aw/factory/sdk.json\necho \"Registry entry:\"; cat /tmp/gh-aw/factory/sdk.json\n"
+        run: "set -euo pipefail\nif [ -n \"${REVISE_PR}\" ] && ! printf '%s' \"${REVISE_PR}\" | grep -Eq '^[0-9]{1,9}$'; then\n  echo \"::error::revise_pr must be empty or a pull request number\"; exit 1\nfi\nrepo=\"$(yq -r \".sdks.\\\"${SDK}\\\".repo\" factory/sdks.yaml)\"\nif [ -z \"$repo\" ] || [ \"$repo\" = \"null\" ]; then\n  echo \"::error::SDK '${SDK}' is not in factory/sdks.yaml\"; exit 1\nfi\nif [ \"${TARGET_REPO}\" != \"${OWNER}/${repo}\" ]; then\n  echo \"::error::target_repo must be ${OWNER}/${repo} for sdk ${SDK}, got ${TARGET_REPO}\"; exit 1\nfi\nif ! printf '%s' \"${CHANGE_ID}\" | grep -Eq '^[a-z0-9][a-z0-9-]{1,48}$'; then\n  echo \"::error::change_id must be kebab-case, 2 to 49 characters\"; exit 1\nfi\nmkdir -p /tmp/gh-aw/factory\nyq -o=json \".sdks.\\\"${SDK}\\\"\" factory/sdks.yaml > /tmp/gh-aw/factory/sdk.json\necho \"Registry entry:\"; cat /tmp/gh-aw/factory/sdk.json\n"
       - env:
           GH_TOKEN: ${{ github.token }}
           SOURCE: ${{ github.event.inputs.source }}
@@ -777,8 +791,19 @@ jobs:
           CHANGE_ID: ${{ github.event.inputs.change_id }}
           GH_TOKEN: ${{ github.token }}
           TARGET_REPO: ${{ github.event.inputs.target_repo }}
+        if: github.event.inputs.revise_pr == ''
         name: Check for an open port PR
         run: "set -euo pipefail\nif ! prs=\"$(gh pr list --repo \"$TARGET_REPO\" --state open --limit 200 --json headRefName,isCrossRepository,number)\"; then\n  echo \"::error::Could not list the open PRs in ${TARGET_REPO}, so the worker stops before the agent starts.\"\n  exit 1\nfi\nopen=\"$(jq -r --arg id \"$CHANGE_ID\" \\\n  '[.[] | select((.isCrossRepository | not) and (.headRefName | test(\"^sdk-factory/\" + $id + \"(-[0-9a-f]{16})?$\")))][0].number // empty' <<<\"$prs\")\"\nif [ -n \"$open\" ]; then\n  echo \"::warning::${TARGET_REPO}/pull/${open} is already open for this change, so the worker will not open another.\"\n  printf '%s/pull/%s\\n' \"$TARGET_REPO\" \"$open\" > /tmp/gh-aw/factory/already-open\nfi\n"
+      - env:
+          BASE_BRANCH: ${{ github.event.inputs.base_branch }}
+          CHANGE_ID: ${{ github.event.inputs.change_id }}
+          GH_TOKEN: ${{ github.token }}
+          REVISE_PR: ${{ github.event.inputs.revise_pr }}
+          SDK: ${{ github.event.inputs.sdk }}
+          TARGET_REPO: ${{ github.event.inputs.target_repo }}
+        if: github.event.inputs.revise_pr != ''
+        name: Prepare the revision
+        run: python3 factory/scripts/factory_review.py prepare
       - if: github.event.inputs.sdk == 'js'
         name: Set up Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -888,7 +913,7 @@ jobs:
         env:
           GH_AW_FILE_ROOT: "${{ runner.temp }}/gh-aw"
           GH_AW_FILE_CONFIG: "{\"files\":[{\"path\":\"safeoutputs/config.json\",\"content_env\":\"GH_AW_SAFE_OUTPUTS_CONFIG\"}]}"
-          GH_AW_SAFE_OUTPUTS_CONFIG: "{\"add_comment\":{\"max\":1,\"target\":\"*\",\"target-repo\":\"${GITHUB_REPOSITORY}\"},\"create_pull_request\":{\"auto_close_issue\":false,\"base_branch\":\"${{ github.event.inputs.base_branch }}\",\"branch_prefix\":\"sdk-factory/\",\"current_checkout_repo\":\"${{ github.event.inputs.target_repo }}\",\"draft\":true,\"excluded_files\":[\"CHANGELOG.md\",\".release-please-manifest.json\",\"release-please-config.json\",\"*factory_acceptance*\",\"*factoryacceptance*\",\"*FactoryAcceptance*\",\".github/**\"],\"fallback_as_issue\":false,\"if_no_changes\":\"warn\",\"labels\":[\"factory\"],\"max\":1,\"max_patch_files\":100,\"max_patch_size\":4096,\"patch_workspace_path\":\"sdk\",\"protect_top_level_dot_folders\":true,\"protected_files\":[\"package.json\",\"bun.lockb\",\"bunfig.toml\",\"deno.json\",\"deno.jsonc\",\"deno.lock\",\"global.json\",\"NuGet.Config\",\"Directory.Packages.props\",\"mix.exs\",\"mix.lock\",\"go.mod\",\"go.sum\",\"stack.yaml\",\"stack.yaml.lock\",\"pom.xml\",\"build.gradle\",\"build.gradle.kts\",\"settings.gradle\",\"settings.gradle.kts\",\"gradle.properties\",\"package-lock.json\",\"yarn.lock\",\"pnpm-lock.yaml\",\"npm-shrinkwrap.json\",\"requirements.txt\",\"Pipfile\",\"Pipfile.lock\",\"pyproject.toml\",\"setup.py\",\"setup.cfg\",\"Gemfile\",\"Gemfile.lock\",\"uv.lock\",\"CODEOWNERS\",\"DESIGN.md\",\"CONTRIBUTING.md\",\"SECURITY.md\",\"CODE_OF_CONDUCT.md\",\"AGENTS.md\"],\"protected_files_policy\":\"request-review\",\"target-repo\":\"${{ github.event.inputs.target_repo }}\"},\"create_report_incomplete_issue\":{},\"noop\":{\"max\":2,\"report-as-issue\":\"false\"},\"report_incomplete\":{},\"report_missing_data\":{},\"report_missing_tool\":{}}"
+          GH_AW_SAFE_OUTPUTS_CONFIG: "{\"add_comment\":{\"max\":1,\"target\":\"*\",\"target-repo\":\"${GITHUB_REPOSITORY}\"},\"create_pull_request\":{\"auto_close_issue\":false,\"base_branch\":\"${{ github.event.inputs.base_branch }}\",\"branch_prefix\":\"sdk-factory/\",\"current_checkout_repo\":\"${{ github.event.inputs.target_repo }}\",\"draft\":true,\"excluded_files\":[\"CHANGELOG.md\",\".release-please-manifest.json\",\"release-please-config.json\",\"*factory_acceptance*\",\"*factoryacceptance*\",\"*FactoryAcceptance*\",\".github/**\"],\"fallback_as_issue\":false,\"if_no_changes\":\"warn\",\"labels\":[\"factory\"],\"max\":1,\"max_patch_files\":100,\"max_patch_size\":4096,\"patch_workspace_path\":\"sdk\",\"protect_top_level_dot_folders\":true,\"protected_files\":[\"package.json\",\"bun.lockb\",\"bunfig.toml\",\"deno.json\",\"deno.jsonc\",\"deno.lock\",\"global.json\",\"NuGet.Config\",\"Directory.Packages.props\",\"mix.exs\",\"mix.lock\",\"go.mod\",\"go.sum\",\"stack.yaml\",\"stack.yaml.lock\",\"pom.xml\",\"build.gradle\",\"build.gradle.kts\",\"settings.gradle\",\"settings.gradle.kts\",\"gradle.properties\",\"package-lock.json\",\"yarn.lock\",\"pnpm-lock.yaml\",\"npm-shrinkwrap.json\",\"requirements.txt\",\"Pipfile\",\"Pipfile.lock\",\"pyproject.toml\",\"setup.py\",\"setup.cfg\",\"Gemfile\",\"Gemfile.lock\",\"uv.lock\",\"CODEOWNERS\",\"DESIGN.md\",\"CONTRIBUTING.md\",\"SECURITY.md\",\"CODE_OF_CONDUCT.md\",\"AGENTS.md\"],\"protected_files_policy\":\"request-review\",\"staged\":\"${{ github.event.inputs.revise_pr != '' }}\",\"target-repo\":\"${{ github.event.inputs.target_repo }}\"},\"create_report_incomplete_issue\":{},\"noop\":{\"max\":2,\"report-as-issue\":\"false\"},\"push_to_pull_request_branch\":{\"check_branch_protection\":false,\"current_checkout_repo\":\"${{ github.event.inputs.target_repo }}\",\"excluded_files\":[\"CHANGELOG.md\",\".release-please-manifest.json\",\"release-please-config.json\",\"*factory_acceptance*\",\"*factoryacceptance*\",\"*FactoryAcceptance*\",\".github/**\"],\"fallback_as_pull_request\":false,\"if_no_changes\":\"warn\",\"ignore_missing_branch_failure\":true,\"max\":1,\"max_patch_size\":4096,\"patch_workspace_path\":\"sdk\",\"protect_top_level_dot_folders\":true,\"protected_files\":[\"package.json\",\"bun.lockb\",\"bunfig.toml\",\"deno.json\",\"deno.jsonc\",\"deno.lock\",\"global.json\",\"NuGet.Config\",\"Directory.Packages.props\",\"mix.exs\",\"mix.lock\",\"go.mod\",\"go.sum\",\"stack.yaml\",\"stack.yaml.lock\",\"pom.xml\",\"build.gradle\",\"build.gradle.kts\",\"settings.gradle\",\"settings.gradle.kts\",\"gradle.properties\",\"package-lock.json\",\"yarn.lock\",\"pnpm-lock.yaml\",\"npm-shrinkwrap.json\",\"requirements.txt\",\"Pipfile\",\"Pipfile.lock\",\"pyproject.toml\",\"setup.py\",\"setup.cfg\",\"Gemfile\",\"Gemfile.lock\",\"uv.lock\",\"CODEOWNERS\",\"DESIGN.md\",\"CONTRIBUTING.md\",\"SECURITY.md\",\"CODE_OF_CONDUCT.md\",\"AGENTS.md\"],\"protected_files_policy\":\"blocked\",\"required_labels\":[\"factory\"],\"staged\":\"${{ github.event.inputs.revise_pr == '' }}\",\"target\":\"${{ github.event.inputs.revise_pr }}\",\"target-repo\":\"${{ github.event.inputs.target_repo }}\"},\"report_incomplete\":{},\"report_missing_data\":{},\"report_missing_tool\":{}}"
           GITHUB_REPOSITORY: ${{ github.repository }}
         with:
           script: |
@@ -904,7 +929,8 @@ jobs:
             {
               "description_suffixes": {
                 "add_comment": " CONSTRAINTS: Maximum 1 comment(s) can be added. Target: *. Comments will be added in repository \"${GH_AW_GITHUB_REPOSITORY}\". Supports reply_to_id for discussion threading.",
-                "create_pull_request": " CONSTRAINTS: Maximum 1 pull request(s) can be created. Branch name will be prefixed with \"sdk-factory/\". Labels [\"factory\"] will be automatically added. PRs will be created as drafts."
+                "create_pull_request": " CONSTRAINTS: Maximum 1 pull request(s) can be created. Branch name will be prefixed with \"sdk-factory/\". Labels [\"factory\"] will be automatically added. PRs will be created as drafts.",
+                "push_to_pull_request_branch": " CONSTRAINTS: Maximum 1 push(es) can be made."
               },
               "repo_params": {},
               "dynamic_tools": []
@@ -1019,6 +1045,29 @@ jobs:
                     "type": "string",
                     "sanitize": true,
                     "maxLength": 65000
+                  }
+                }
+              },
+              "push_to_pull_request_branch": {
+                "defaultMax": 1,
+                "fields": {
+                  "branch": {
+                    "type": "string",
+                    "sanitize": true,
+                    "maxLength": 256
+                  },
+                  "message": {
+                    "required": true,
+                    "type": "string",
+                    "sanitize": true,
+                    "maxLength": 65000
+                  },
+                  "pull_request_number": {
+                    "issueOrPRNumber": true
+                  },
+                  "repo": {
+                    "type": "string",
+                    "maxLength": 256
                   }
                 }
               },
@@ -2427,6 +2476,8 @@ jobs:
       process_safe_outputs_items_warnings: ${{ steps.process_safe_outputs.outputs.items_warnings }}
       process_safe_outputs_processed_count: ${{ steps.process_safe_outputs.outputs.processed_count }}
       process_safe_outputs_status: ${{ steps.process_safe_outputs.outputs.status }}
+      push_commit_sha: ${{ steps.process_safe_outputs.outputs.push_commit_sha }}
+      push_commit_url: ${{ steps.process_safe_outputs.outputs.push_commit_url }}
     steps:
       - name: Setup Scripts
         id: setup
@@ -2469,14 +2520,14 @@ jobs:
           name: agent
           path: /tmp/gh-aw/
       - name: Checkout repository (gh-aw default)
-        if: (!cancelled()) && needs.agent.result != 'skipped' && contains(needs.agent.outputs.output_types, 'create_pull_request')
+        if: (!cancelled()) && needs.agent.result != 'skipped' && contains(needs.agent.outputs.output_types, 'create_pull_request') || (!cancelled()) && needs.agent.result != 'skipped' && contains(needs.agent.outputs.output_types, 'push_to_pull_request_branch')
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: true
           fetch-depth: 1
           token: ${{ secrets.FACTORY_TOKEN }}
       - name: Validate single checkout repository (1)
-        if: (!cancelled()) && needs.agent.result != 'skipped' && contains(needs.agent.outputs.output_types, 'create_pull_request')
+        if: (!cancelled()) && needs.agent.result != 'skipped' && contains(needs.agent.outputs.output_types, 'create_pull_request') || (!cancelled()) && needs.agent.result != 'skipped' && contains(needs.agent.outputs.output_types, 'push_to_pull_request_branch')
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           GH_AW_CHECKOUT_REPOSITORY: "${{ github.event.inputs.target_repo }}"
@@ -2487,7 +2538,7 @@ jobs:
             const { validateSingleRepository } = require(path.join(actionsDir, 'checkout_dynamic.cjs'));
             validateSingleRepository(process.env.GH_AW_CHECKOUT_REPOSITORY);
       - name: Checkout ${{ github.event.inputs.target_repo }} into sdk
-        if: (!cancelled()) && needs.agent.result != 'skipped' && contains(needs.agent.outputs.output_types, 'create_pull_request')
+        if: (!cancelled()) && needs.agent.result != 'skipped' && contains(needs.agent.outputs.output_types, 'create_pull_request') || (!cancelled()) && needs.agent.result != 'skipped' && contains(needs.agent.outputs.output_types, 'push_to_pull_request_branch')
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: true
@@ -2497,7 +2548,7 @@ jobs:
           token: ${{ secrets.FACTORY_TOKEN }}
           fetch-depth: 0
       - name: Build checkout manifest for safe-outputs handlers
-        if: (!cancelled()) && needs.agent.result != 'skipped' && contains(needs.agent.outputs.output_types, 'create_pull_request')
+        if: (!cancelled()) && needs.agent.result != 'skipped' && contains(needs.agent.outputs.output_types, 'create_pull_request') || (!cancelled()) && needs.agent.result != 'skipped' && contains(needs.agent.outputs.output_types, 'push_to_pull_request_branch')
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
@@ -2512,7 +2563,7 @@ jobs:
             const { main } = require(path.join(actionsDir, 'build_checkout_manifest.cjs'));
             await main();
       - name: Configure Git credentials
-        if: (!cancelled()) && needs.agent.result != 'skipped' && contains(needs.agent.outputs.output_types, 'create_pull_request')
+        if: (!cancelled()) && needs.agent.result != 'skipped' && contains(needs.agent.outputs.output_types, 'create_pull_request') || (!cancelled()) && needs.agent.result != 'skipped' && contains(needs.agent.outputs.output_types, 'push_to_pull_request_branch')
         env:
           GH_AW_GIT_REPOSITORY: ${{ github.repository }}
           GITHUB_SERVER_URL: ${{ github.server_url }}
@@ -2543,7 +2594,7 @@ jobs:
           GH_AW_ALLOWED_DOMAINS: "*.githubusercontent.com,*.gradle-enterprise.cloud,*.pythonhosted.org,*.vsblob.vsassets.io,adoptium.net,anaconda.org,api.adoptium.net,api.foojay.io,api.npms.io,api.nuget.org,archive.apache.org,archive.ubuntu.com,azure.archive.ubuntu.com,azuresearch-usnc.nuget.org,azuresearch-ussc.nuget.org,binstar.org,bootstrap.pypa.io,builds.dotnet.microsoft.com,bun.sh,cdn.azul.com,cdn.jsdelivr.net,central.sonatype.com,ci.dot.net,codeload.github.com,conda.anaconda.org,conda.binstar.org,crl.geotrust.com,crl.globalsign.com,crl.identrust.com,crl.sectigo.com,crl.thawte.com,crl.usertrust.com,crl.verisign.com,crl3.digicert.com,crl4.digicert.com,crls.ssl.com,deb.nodesource.com,deno.land,develocity.apache.org,dist.nuget.org,dl.google.com,dlcdn.apache.org,docs.github.com,dot.net,dotnet.microsoft.com,dotnetcli.blob.core.windows.net,download.eclipse.org,download.java.net,download.oracle.com,downloads.gradle-dn.com,esm.sh,files.pythonhosted.org,ge.spockframework.org,get.pnpm.io,github-cloud.githubusercontent.com,github-cloud.s3.amazonaws.com,github.blog,github.com,github.githubassets.com,go.dev,golang.org,googleapis.deno.dev,googlechromelabs.github.io,goproxy.io,gradle.org,jcenter.bintray.com,jdk.java.net,json-schema.org,json.schemastore.org,jsr.io,keyserver.ubuntu.com,lfs.github.com,maven-central.storage-download.googleapis.com,maven.apache.org,maven.google.com,maven.oracle.com,maven.pkg.github.com,nodejs.org,npm.pkg.github.com,npmjs.com,npmjs.org,nuget.org,nuget.pkg.github.com,nugetregistryv2prod.blob.core.windows.net,objects.githubusercontent.com,ocsp.digicert.com,ocsp.geotrust.com,ocsp.globalsign.com,ocsp.identrust.com,ocsp.sectigo.com,ocsp.ssl.com,ocsp.thawte.com,ocsp.usertrust.com,ocsp.verisign.com,oneocsp.microsoft.com,patch-diff.githubusercontent.com,patchdiff.githubusercontent.com,pip.pypa.io,pkg.go.dev,pkgs.dev.azure.com,plugins-artifacts.gradle.org,plugins.gradle.org,proxy.golang.org,pypi.org,pypi.python.org,raw.githubusercontent.com,registry.bower.io,registry.npmjs.com,registry.npmjs.org,registry.yarnpkg.com,repo.anaconda.com,repo.continuum.io,repo.gradle.org,repo.grails.org,repo.maven.apache.org,repo.spring.io,repo.yarnpkg.com,repo1.maven.org,repository.apache.org,s.symcb.com,s.symcd.com,scans-in.gradle.com,security.ubuntu.com,services.gradle.org,skimdb.npmjs.com,storage.googleapis.com,sum.golang.org,ts-crl.ws.symantec.com,ts-ocsp.ws.symantec.com,www.java.com,www.microsoft.com,www.npmjs.com,www.npmjs.org,yarnpkg.com"
           GITHUB_SERVER_URL: ${{ github.server_url }}
           GITHUB_API_URL: ${{ github.api_url }}
-          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"add_comment\":{\"max\":1,\"target\":\"*\",\"target-repo\":\"${{ github.repository }}\"},\"create_pull_request\":{\"auto_close_issue\":false,\"base_branch\":\"${{ github.event.inputs.base_branch }}\",\"branch_prefix\":\"sdk-factory/\",\"current_checkout_repo\":\"${{ github.event.inputs.target_repo }}\",\"draft\":true,\"excluded_files\":[\"CHANGELOG.md\",\".release-please-manifest.json\",\"release-please-config.json\",\"*factory_acceptance*\",\"*factoryacceptance*\",\"*FactoryAcceptance*\",\".github/**\"],\"fallback_as_issue\":false,\"if_no_changes\":\"warn\",\"labels\":[\"factory\"],\"max\":1,\"max_patch_files\":100,\"max_patch_size\":4096,\"patch_workspace_path\":\"sdk\",\"protect_top_level_dot_folders\":true,\"protected_files\":[\"package.json\",\"bun.lockb\",\"bunfig.toml\",\"deno.json\",\"deno.jsonc\",\"deno.lock\",\"global.json\",\"NuGet.Config\",\"Directory.Packages.props\",\"mix.exs\",\"mix.lock\",\"go.mod\",\"go.sum\",\"stack.yaml\",\"stack.yaml.lock\",\"pom.xml\",\"build.gradle\",\"build.gradle.kts\",\"settings.gradle\",\"settings.gradle.kts\",\"gradle.properties\",\"package-lock.json\",\"yarn.lock\",\"pnpm-lock.yaml\",\"npm-shrinkwrap.json\",\"requirements.txt\",\"Pipfile\",\"Pipfile.lock\",\"pyproject.toml\",\"setup.py\",\"setup.cfg\",\"Gemfile\",\"Gemfile.lock\",\"uv.lock\",\"CODEOWNERS\",\"DESIGN.md\",\"CONTRIBUTING.md\",\"SECURITY.md\",\"CODE_OF_CONDUCT.md\",\"AGENTS.md\"],\"protected_files_policy\":\"request-review\",\"target-repo\":\"${{ github.event.inputs.target_repo }}\"},\"create_report_incomplete_issue\":{},\"noop\":{\"max\":2,\"report-as-issue\":\"false\"},\"report_incomplete\":{},\"report_missing_data\":{},\"report_missing_tool\":{}}"
+          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"add_comment\":{\"max\":1,\"target\":\"*\",\"target-repo\":\"${{ github.repository }}\"},\"create_pull_request\":{\"auto_close_issue\":false,\"base_branch\":\"${{ github.event.inputs.base_branch }}\",\"branch_prefix\":\"sdk-factory/\",\"current_checkout_repo\":\"${{ github.event.inputs.target_repo }}\",\"draft\":true,\"excluded_files\":[\"CHANGELOG.md\",\".release-please-manifest.json\",\"release-please-config.json\",\"*factory_acceptance*\",\"*factoryacceptance*\",\"*FactoryAcceptance*\",\".github/**\"],\"fallback_as_issue\":false,\"if_no_changes\":\"warn\",\"labels\":[\"factory\"],\"max\":1,\"max_patch_files\":100,\"max_patch_size\":4096,\"patch_workspace_path\":\"sdk\",\"protect_top_level_dot_folders\":true,\"protected_files\":[\"package.json\",\"bun.lockb\",\"bunfig.toml\",\"deno.json\",\"deno.jsonc\",\"deno.lock\",\"global.json\",\"NuGet.Config\",\"Directory.Packages.props\",\"mix.exs\",\"mix.lock\",\"go.mod\",\"go.sum\",\"stack.yaml\",\"stack.yaml.lock\",\"pom.xml\",\"build.gradle\",\"build.gradle.kts\",\"settings.gradle\",\"settings.gradle.kts\",\"gradle.properties\",\"package-lock.json\",\"yarn.lock\",\"pnpm-lock.yaml\",\"npm-shrinkwrap.json\",\"requirements.txt\",\"Pipfile\",\"Pipfile.lock\",\"pyproject.toml\",\"setup.py\",\"setup.cfg\",\"Gemfile\",\"Gemfile.lock\",\"uv.lock\",\"CODEOWNERS\",\"DESIGN.md\",\"CONTRIBUTING.md\",\"SECURITY.md\",\"CODE_OF_CONDUCT.md\",\"AGENTS.md\"],\"protected_files_policy\":\"request-review\",\"staged\":\"${{ github.event.inputs.revise_pr != '' }}\",\"target-repo\":\"${{ github.event.inputs.target_repo }}\"},\"create_report_incomplete_issue\":{},\"noop\":{\"max\":2,\"report-as-issue\":\"false\"},\"push_to_pull_request_branch\":{\"check_branch_protection\":false,\"current_checkout_repo\":\"${{ github.event.inputs.target_repo }}\",\"excluded_files\":[\"CHANGELOG.md\",\".release-please-manifest.json\",\"release-please-config.json\",\"*factory_acceptance*\",\"*factoryacceptance*\",\"*FactoryAcceptance*\",\".github/**\"],\"fallback_as_pull_request\":false,\"if_no_changes\":\"warn\",\"ignore_missing_branch_failure\":true,\"max\":1,\"max_patch_size\":4096,\"patch_workspace_path\":\"sdk\",\"protect_top_level_dot_folders\":true,\"protected_files\":[\"package.json\",\"bun.lockb\",\"bunfig.toml\",\"deno.json\",\"deno.jsonc\",\"deno.lock\",\"global.json\",\"NuGet.Config\",\"Directory.Packages.props\",\"mix.exs\",\"mix.lock\",\"go.mod\",\"go.sum\",\"stack.yaml\",\"stack.yaml.lock\",\"pom.xml\",\"build.gradle\",\"build.gradle.kts\",\"settings.gradle\",\"settings.gradle.kts\",\"gradle.properties\",\"package-lock.json\",\"yarn.lock\",\"pnpm-lock.yaml\",\"npm-shrinkwrap.json\",\"requirements.txt\",\"Pipfile\",\"Pipfile.lock\",\"pyproject.toml\",\"setup.py\",\"setup.cfg\",\"Gemfile\",\"Gemfile.lock\",\"uv.lock\",\"CODEOWNERS\",\"DESIGN.md\",\"CONTRIBUTING.md\",\"SECURITY.md\",\"CODE_OF_CONDUCT.md\",\"AGENTS.md\"],\"protected_files_policy\":\"blocked\",\"required_labels\":[\"factory\"],\"staged\":\"${{ github.event.inputs.revise_pr == '' }}\",\"target\":\"${{ github.event.inputs.revise_pr }}\",\"target-repo\":\"${{ github.event.inputs.target_repo }}\"},\"report_incomplete\":{},\"report_missing_data\":{},\"report_missing_tool\":{}}"
           GH_AW_CI_TRIGGER_TOKEN: ${{ secrets.GH_AW_CI_TRIGGER_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.FACTORY_TOKEN }}
           GH_AW_GITHUB_TOKEN_SOURCE: "unknown"
