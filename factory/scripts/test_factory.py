@@ -49,14 +49,22 @@ UPSTREAM_MENTION = re.compile(r"https://github\.com/openfga/|openfga/[\w.-]+#\d"
 
 
 class FakeGitHub:
+    """Answers from responses, keyed by (method, path without the query). Comment posts get ids, and a
+    PATCH of a posted comment replaces it unless responses has its own answer for that PATCH."""
+
     def __init__(self, responses: dict):
         self.responses = responses
         self.calls = []
+        self.posted = {}
 
     def api(self, path, *, method="GET", fields=None, headers=None, paginate=False, token=None):
         call = {"method": method, "path": path, "fields": dict(fields or []), "headers": headers or {}, "token": token}
         self.calls.append(call)
         key = (method, path.split("?")[0])
+        edit = re.fullmatch(r"repos/[^/]+/[^/]+/issues/comments/(\d+)", key[1])
+        if method == "PATCH" and edit and key not in self.responses and int(edit.group(1)) in self.posted:
+            self.posted[int(edit.group(1))] = call["fields"]["body"]
+            return {"id": int(edit.group(1))}
         if key not in self.responses:
             raise ApiError(path, "HTTP 404: Not Found")
         value = self.responses[key]
@@ -64,10 +72,15 @@ class FakeGitHub:
             value = value(call)
         if isinstance(value, Exception):
             raise value
+        if method == "POST" and key[1].endswith("/comments") and isinstance(value, (dict, type(None))):
+            comment_id = 1000 + len(self.posted)
+            self.posted[comment_id] = call["fields"]["body"]
+            value = {**(value or {}), "id": comment_id}
         return copy.deepcopy(value)
 
     def comments(self) -> list:
-        return [c["fields"]["body"] for c in self.calls if c["method"] == "POST" and c["path"].endswith("/comments")]
+        """Bodies of the comments as they stand now, oldest first."""
+        return list(self.posted.values())
 
     def dispatches(self) -> list:
         return [c for c in self.calls if c["path"].endswith("/dispatches")]
@@ -83,7 +96,8 @@ def compare(upstream: str, behind: int = 0) -> tuple:
 def base_responses(body: str, comments=None) -> dict:
     responses = {
         ("GET", f"repos/{HUB}"): {"default_branch": "main"},
-        ("GET", f"repos/{HUB}/issues/7"): {"body": body},
+        ("GET", f"repos/{HUB}/issues/7"): {"body": body, "user": {"login": "maintainer"}},
+        ("GET", f"repos/{HUB}/collaborators/maintainer/permission"): {"permission": "write"},
         ("GET", f"repos/{HUB}/issues/7/comments"): comments or [],
         ("POST", f"repos/{HUB}/issues/7/comments"): {},
         ("POST", f"repos/{HUB}/actions/workflows/{route.PORT_WORKFLOW}/dispatches"): {
@@ -96,6 +110,8 @@ def base_responses(body: str, comments=None) -> dict:
     for upstream in ["openfga/sdk-generator"] + [entry["upstream"] for entry in REGISTRY["sdks"].values()]:
         key, value = compare(upstream)
         responses[key] = value
+    for entry in REGISTRY["sdks"].values():
+        responses[("GET", f"repos/lab/{entry['repo']}/pulls")] = []
     return responses
 
 
@@ -327,6 +343,145 @@ class LaneBTest(RouteCase):
         self.assertIn("skipped: fork not in sync", gh.comments()[0])
 
 
+class RetryTest(RouteCase):
+    """The router can run twice for one issue, stop halfway, or meet a port that is already open."""
+
+    def lane_b(self, targets: str = "go") -> dict:
+        body = issue_form("B: port an SDK change", "openfga/js-sdk/pull/228", "custom-claims", targets)
+        responses = base_responses(body)
+        responses[("GET", "repos/openfga/js-sdk/pulls/228")] = merged_pr("feat: support custom claims")
+        return responses
+
+    def test_placeholder_is_posted_before_dispatch_then_replaced(self):
+        gh = FakeGitHub(self.lane_b())
+
+        self.assertEqual(self.route(gh), 0)
+
+        posts = [i for i, c in enumerate(gh.calls) if c["method"] == "POST" and c["path"].endswith("/comments")]
+        [dispatch] = [i for i, c in enumerate(gh.calls) if c["path"].endswith("/dispatches")]
+        [edit] = [i for i, c in enumerate(gh.calls) if c["method"] == "PATCH"]
+        self.assertEqual(len(posts), 1)
+        self.assertLess(posts[0], dispatch)
+        self.assertLess(dispatch, edit)
+        placeholder = gh.calls[posts[0]]["fields"]["body"]
+        self.assertIn(route.TRACKING_MARKER.format("dispatched"), placeholder)
+        self.assertIn("Starting.", placeholder)
+        self.assertEqual(gh.calls[edit]["path"], f"repos/{HUB}/issues/comments/1000")
+        [comment] = gh.comments()
+        self.assertIn("[started]", comment)
+        self.assertNotIn("Starting.", comment)
+
+    def test_failed_edit_posts_the_plan_as_a_new_comment(self):
+        responses = self.lane_b()
+        responses[("PATCH", f"repos/{HUB}/issues/comments/1000")] = ApiError("x", "HTTP 502: Bad Gateway")
+        gh = FakeGitHub(responses)
+
+        self.assertEqual(self.route(gh), 0)
+
+        placeholder, comment = gh.comments()
+        self.assertIn("Starting.", placeholder)
+        self.assertIn("[started]", comment)
+
+    def test_run_that_starts_nothing_can_be_retried_without_force(self):
+        responses = self.lane_b("go, python")
+        responses[("POST", f"repos/{HUB}/actions/workflows/{route.PORT_WORKFLOW}/dispatches")] = ApiError("x", "HTTP 500: boom")
+        gh = FakeGitHub(responses)
+
+        self.assertEqual(self.route(gh), 1)
+
+        [comment] = gh.comments()
+        self.assertIn(route.TRACKING_MARKER.format("stopped"), comment)
+        self.assertNotIn(route.TRACKING_MARKER.format("dispatched"), comment)
+        self.assertEqual(comment.count("dispatch failed (HTTP 500)"), 2)
+        self.assertIn("Nothing started.", comment)
+
+        retry = self.lane_b("go, python")
+        retry[("GET", f"repos/{HUB}/issues/7/comments")] = [{"user": {"login": "github-actions[bot]"}, "body": comment}]
+        gh = FakeGitHub(retry)
+
+        self.assertEqual(self.route(gh), 0)
+        self.assertEqual(len(gh.dispatches()), 2)
+
+    def test_stopped_run_with_a_failed_edit_can_be_retried_without_force(self):
+        responses = self.lane_b()
+        responses[("POST", f"repos/{HUB}/actions/workflows/{route.PORT_WORKFLOW}/dispatches")] = ApiError("x", "HTTP 500: boom")
+        responses[("PATCH", f"repos/{HUB}/issues/comments/1000")] = ApiError("x", "HTTP 502: Bad Gateway")
+        gh = FakeGitHub(responses)
+
+        self.assertEqual(self.route(gh), 1)
+
+        placeholder, comment = gh.comments()
+        self.assertIn(route.TRACKING_MARKER.format("dispatched"), placeholder)
+        self.assertTrue(comment.startswith(route.TRACKING_MARKER.format("stopped") + "\n" + route.SUPERSEDES_MARKER.format(1000) + "\n"))
+
+        # Only the factory's own stopped comment releases the placeholder.
+        for author, dispatches in [("github-actions[bot]", 1), ("maintainer", 0)]:
+            with self.subTest(author=author):
+                retry = self.lane_b()
+                retry[("GET", f"repos/{HUB}/issues/7/comments")] = [
+                    {"id": 1000, "user": {"login": "github-actions[bot]"}, "body": placeholder},
+                    {"id": 1001, "user": {"login": author}, "body": comment},
+                ]
+                gh = FakeGitHub(retry)
+
+                self.assertEqual(self.route(gh), 0)
+                self.assertEqual(len(gh.dispatches()), dispatches)
+
+    def test_open_port_pr_blocks_a_second_worker_even_with_force(self):
+        responses = self.lane_b("go, python, java")
+        go_prs = "https://github.com/lab/openfga-go-sdk/pull"
+        responses[("GET", "repos/lab/openfga-go-sdk/pulls")] = [
+            {"head": {"ref": "sdk-factory/custom-claims-extra", "repo": {"full_name": "lab/openfga-go-sdk"}}, "html_url": f"{go_prs}/2"},
+            {"head": {"ref": "sdk-factory/custom-claims-0123456789abcdef", "repo": {"full_name": "lab/openfga-go-sdk"}}, "html_url": f"{go_prs}/3"},
+        ]
+        responses[("GET", "repos/lab/openfga-python-sdk/pulls")] = [
+            {"head": {"ref": "sdk-factory/custom-claims", "repo": {"full_name": "someone/openfga-python-sdk"}}, "html_url": "x/9"},
+        ]
+        responses[("GET", "repos/lab/java-sdk/pulls")] = ApiError("x", "HTTP 502: Bad Gateway")
+        gh = FakeGitHub(responses)
+
+        self.assertEqual(self.route(gh, force=True), 1)
+
+        self.assertEqual([d["fields"]["inputs[sdk]"] for d in gh.dispatches()], ["python"])
+        [comment] = gh.comments()
+        self.assertIn(route.TRACKING_MARKER.format("dispatched"), comment)
+        self.assertIn(f"skipped: [open PR]({go_prs}/3)", comment)
+        self.assertNotIn(f"{go_prs}/2", comment)
+        self.assertIn("skipped: could not list open PRs (HTTP 502)", comment)
+
+    def test_issue_author_needs_write_access(self):
+        cases = [
+            ("drive-by", {"permission": "read"}),
+            ("drive-by", ApiError("x", "HTTP 404: Not Found")),
+            ("", None),
+        ]
+        for login, permission in cases:
+            with self.subTest(login=login, permission=permission):
+                responses = self.lane_b()
+                responses[("GET", f"repos/{HUB}/issues/7")]["user"] = {"login": login}
+                if login:
+                    responses[("GET", f"repos/{HUB}/collaborators/{login}/permission")] = permission
+                gh = FakeGitHub(responses)
+
+                self.assertEqual(self.route(gh), 1)
+
+                self.assertEqual((gh.dispatches(), gh.merges()), ([], []))
+                [comment] = gh.comments()
+                self.assertIn(route.ERROR_MARKER, comment)
+                self.assertIn("does not have write access to this repository", comment)
+                self.assertNotIn("@drive-by", comment)
+
+    def test_bot_authored_candidate_skips_the_permission_check(self):
+        responses = self.lane_b()
+        responses[("GET", f"repos/{HUB}/issues/7")]["user"] = {"login": "github-actions[bot]"}
+        gh = FakeGitHub(responses)
+
+        self.assertEqual(self.route(gh), 0)
+
+        self.assertEqual(len(gh.dispatches()), 1)
+        self.assertEqual([c for c in gh.calls if "/collaborators/" in c["path"]], [])
+
+
 class ReachTest(RouteCase):
     REACH = '{"other-api": ["go", "js", "python"]}'
 
@@ -455,7 +610,7 @@ class ModelTest(RouteCase):
         self.assertIn("The model only applies to port workers, and this run starts none.", comment)
         self.assertNotIn("Worker model", comment)
 
-        responses[("GET", f"repos/{HUB}/issues/7")] = {"body": body.replace("- [ ] Lanes A and C", "- [X] Lanes A and C")}
+        responses[("GET", f"repos/{HUB}/issues/7")]["body"] = body.replace("- [ ] Lanes A and C", "- [X] Lanes A and C")
         gh = FakeGitHub(responses)
 
         self.assertEqual(self.route(gh), 0)
@@ -490,7 +645,7 @@ class LaneACTest(RouteCase):
         self.assertIn("(derived from the source)", comment)
         self.assertQuiet(comment)
 
-    def test_open_generator_pr_uses_its_pull_ref(self):
+    def test_open_generator_pr_is_pinned_to_its_head(self):
         body = issue_form("C: generator template change", "openfga/sdk-generator/pull/700", targets="go")
         body = body.replace("- [ ] Lanes A and C", "- [X] Lanes A and C")
         responses = base_responses(body)
@@ -515,13 +670,13 @@ class LaneACTest(RouteCase):
         fields = attempts[1]["fields"]
         self.assertEqual(fields["inputs[sdk]"], "go")
         self.assertEqual(fields["inputs[generator_repo]"], "openfga/sdk-generator")
-        self.assertEqual(fields["inputs[generator_ref]"], "refs/pull/700/head")
+        self.assertEqual(fields["inputs[generator_ref]"], "b" * 40)
         self.assertEqual(fields["inputs[change_id]"], "gen-pr-700")
         self.assertEqual(fields["inputs[port_after]"], "true")
         [comment] = gh.comments()
         self.assertIn(f"actions/workflows/{route.SYNC_WORKFLOW}", comment)
-        self.assertIn(f"refs/pull/700/head at {'b' * 7}", comment)
-        self.assertIn("The generator pull request is still open.", comment)
+        self.assertIn("| Generator | `openfga/sdk-generator` at `bbbbbbb`, the pull request head when the router ran |", comment)
+        self.assertIn("The generator pull request is still open, so the SDKs are generated from its head commit.", comment)
         self.assertIn("only run the factory on changes you have read", comment)
 
     def test_generator_commit_must_be_on_main_to_skip_the_warning(self):

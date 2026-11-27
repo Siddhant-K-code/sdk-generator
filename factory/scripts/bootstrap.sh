@@ -52,6 +52,15 @@ gh api -X PUT "repos/$hub/actions/permissions/workflow" \
 gh variable set FACTORY_SKIP_PUSH_SYNC --repo "$hub" --body true >/dev/null
 echo "$hub: issues on, Actions on, read-only default token, FACTORY_SKIP_PUSH_SYNC=true"
 
+# Factory branches run each fork's CI on generated code, so jobs there that
+# ask for no permissions get a read-only token.
+step "Fork settings"
+for fork in "${forks[@]}"; do
+  gh api -X PUT "repos/$fork/actions/permissions/workflow" \
+    -f default_workflow_permissions=read -F can_approve_pull_request_reviews=false >/dev/null
+  echo "$fork: read-only default token"
+done
+
 label() {
   gh label create "$2" --repo "$1" --color "$3" --description "$4" --force >/dev/null
 }
@@ -127,6 +136,7 @@ EOF
 fi
 
 step "Next"
-echo "gh aw doctor --repo $hub"
+echo "gh aw secrets bootstrap --non-interactive --repo $hub   # checks COPILOT_GITHUB_TOKEN"
+echo "gh aw doctor   # in a checkout of $hub: checks FACTORY_TOKEN"
 echo "gh workflow run factory-sync-forks.yml --repo $hub"
 echo "Then open https://github.com/$hub/issues/new/choose, pick \"SDK factory change\" and tick Plan only."

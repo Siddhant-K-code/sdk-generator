@@ -7,8 +7,9 @@ name: Sync SDKs with generator
 # - openapi_ref, generator_repo and generator_ref pick what to generate from.
 # - change_id names a factory change. It gives the run its own sync branch and
 #   a draft PR labelled `factory`.
-# - port_after starts the factory port worker on each new sync PR, so an agent
-#   adds the hand-written layer in a stacked draft PR. model picks the worker's
+# - port_after starts the factory port worker on each sync PR, so an agent
+#   adds the hand-written layer in a stacked draft PR. It skips an SDK whose
+#   fork already has an open port PR for the change. model picks the worker's
 #   Copilot model. The router sets it from `models` in factory/sdks.yaml.
 # - A run with change_id and an openapi_ref, generator_repo or generator_ref
 #   builds each SDK before and after that change and applies only the
@@ -20,6 +21,9 @@ name: Sync SDKs with generator
 #   that merges upstream main, or every merge opens sync PRs.
 # - Without the releaser App or GPG secrets, the push falls back to
 #   secrets.FACTORY_TOKEN and unsigned commits.
+# - The sync job runs generator and SDK code, so it gets no token or secret.
+#   It saves each SDK's change as a patch. The publish job checks the patch,
+#   then commits and pushes it and opens the PR, without running that code.
 
 on:
   push:
@@ -99,6 +103,16 @@ jobs:
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
+      # The change id becomes branch names and a pattern in the publish job.
+      - name: Check the change id
+        env:
+          CHANGE_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.change_id || '' }}
+        run: |
+          if [[ -n "$CHANGE_ID" && ! "$CHANGE_ID" =~ ^[a-z0-9][a-z0-9-]{1,48}$ ]]; then
+            echo "::error::change_id takes 2 to 49 lowercase letters, digits and hyphens, and starts with a letter or digit."
+            exit 1
+          fi
+
       - name: Compute matrix
         id: set
         env:
@@ -128,17 +142,15 @@ jobs:
           echo "Selected: $SELECTED"
           echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
 
+  # Runs the generator and the SDK's tests, which may come from an unmerged
+  # branch, so it holds no token or secret. See the publish job.
   sync:
+    name: sync ${{ matrix.language }}
     needs: prepare
     runs-on: ubuntu-latest
     env:
-      HAS_APP: ${{ secrets.RELEASER_APP_CLIENT_ID != '' }}
-      HAS_GPG: ${{ secrets.GPG_PRIVATE_KEY != '' }}
-      CHANGE_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.change_id || '' }}
       GENERATOR_REPO: ${{ github.event_name == 'workflow_dispatch' && inputs.generator_repo || '' }}
       GENERATOR_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.generator_ref || '' }}
-      PORT_AFTER: ${{ github.event_name == 'workflow_dispatch' && inputs.change_id != '' && inputs.port_after }}
-      TRACKING_ISSUE: ${{ github.event_name == 'workflow_dispatch' && inputs.tracking_issue || '' }}
       DELTA: ${{ github.event_name == 'workflow_dispatch' && inputs.change_id != '' && (inputs.openapi_ref != '' || inputs.generator_repo != '' || inputs.generator_ref != '') }}
     strategy:
       fail-fast: false
@@ -154,8 +166,7 @@ jobs:
           ref: ${{ env.GENERATOR_REF || (env.GENERATOR_REPO == '' && github.sha || '') }}
           persist-credentials: false
 
-      # No token needed to clone (public repos). Credentials are not persisted
-      # so the push below uses the app token.
+      # No token needed to clone (public repos).
       - name: Checkout SDK repo
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -181,9 +192,9 @@ jobs:
         with:
           python-version: "3.10"
 
-      # No dependency cache. This job holds push credentials, and the factory
-      # verify job runs SDK pull request code in the same cache scope, so a
-      # restored cache could carry code into this job.
+      # No dependency cache. The factory verify job runs SDK pull request code
+      # in the same cache scope, so a restored cache could change what this
+      # job generates and the publish job pushes.
       - name: Set up JDK
         if: matrix.language == 'java'
         uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
@@ -232,7 +243,6 @@ jobs:
           OPENAPI_GENERATOR_CLI_DOCKER_TAG: ${{ matrix.openapi_generator_tag || 'v6.4.0' }}
           LANGUAGE: ${{ matrix.language }}
           MAKE_TARGET: ${{ matrix.make_target }}
-
       - name: Check for SDK changes
         id: diff
         working-directory: clients/fga-${{ matrix.language }}-sdk
@@ -247,9 +257,140 @@ jobs:
           git --no-pager diff
           echo "dirty=true" >> "$GITHUB_OUTPUT"
 
-      # Minted after the build since app tokens expire after 1 hour.
+      # The publish job reads only these files, and only as data.
+      - name: Save the change
+        if: always()
+        env:
+          DIRTY: ${{ steps.diff.outputs.dirty }}
+          SDK_DIR: clients/fga-${{ matrix.language }}-sdk
+        run: |
+          OUT="$RUNNER_TEMP/factory-sync"
+          rm -rf "$OUT"
+          mkdir -p "$OUT"
+          echo failed > "$OUT/status"
+          if [[ "$DIRTY" == "true" ]]; then
+            git -C "$SDK_DIR" add -A
+            git -C "$SDK_DIR" diff --cached --binary > "$OUT/changes.patch"
+            git -C "$SDK_DIR" rev-parse HEAD > "$OUT/base"
+            echo dirty > "$OUT/status"
+          elif [[ "$DIRTY" == "false" ]]; then
+            echo clean > "$OUT/status"
+          fi
+
+      # Uploaded on every attempt, so a re-run never publishes an older change.
+      - name: Upload the change
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: factory-sync-${{ matrix.language }}
+          path: ${{ runner.temp }}/factory-sync/
+          overwrite: true
+          retention-days: 1
+
+      - name: Summary
+        if: always()
+        run: |
+          if [[ "${{ job.status }}" != "success" ]]; then
+            echo "### \`${{ matrix.repo }}\`: sync failed, see job logs" >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ steps.diff.outputs.dirty }}" == "true" ]]; then
+            echo "### \`${{ matrix.repo }}\`: drift detected, the publish job opens or updates the sync PR" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### \`${{ matrix.repo }}\`: in sync, nothing to do" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  # Pushes each SDK's change and opens its PR. The sync job ran generator and
+  # SDK code, so this job runs none of it: it checks the saved patch, then
+  # applies it to the index and commits. Only this job holds tokens.
+  publish:
+    name: publish ${{ matrix.language }}
+    needs: [prepare, sync]
+    if: ${{ !cancelled() && needs.prepare.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+    env:
+      HAS_APP: ${{ secrets.RELEASER_APP_CLIENT_ID != '' }}
+      HAS_GPG: ${{ secrets.GPG_PRIVATE_KEY != '' }}
+      SDK_REPO: ${{ github.repository_owner }}/${{ matrix.repo }}
+      CHANGE_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.change_id || '' }}
+      GENERATOR_REPO: ${{ github.event_name == 'workflow_dispatch' && inputs.generator_repo || '' }}
+      GENERATOR_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.generator_ref || '' }}
+      PORT_AFTER: ${{ github.event_name == 'workflow_dispatch' && inputs.change_id != '' && inputs.port_after }}
+      TRACKING_ISSUE: ${{ github.event_name == 'workflow_dispatch' && inputs.tracking_issue || '' }}
+      MODEL: ${{ github.event_name == 'workflow_dispatch' && inputs.model || '' }}
+      DELTA: ${{ github.event_name == 'workflow_dispatch' && inputs.change_id != '' && (inputs.openapi_ref != '' || inputs.generator_repo != '' || inputs.generator_ref != '') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+
+    steps:
+      - name: Download the change
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: factory-sync-${{ matrix.language }}
+          path: ${{ runner.temp }}/factory-sync
+
+      - name: Read the sync result
+        id: result
+        run: |
+          STATUS=$(cat "$RUNNER_TEMP/factory-sync/status" 2>/dev/null || true)
+          case "$STATUS" in
+            clean|dirty|failed) ;;
+            *) STATUS=missing ;;
+          esac
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          echo "Sync result: $STATUS"
+          if [[ "$STATUS" == "missing" ]]; then
+            echo "::error::No sync result for this SDK. Re-run the failed jobs."
+            exit 1
+          fi
+
+      - name: Checkout SDK repo
+        if: steps.result.outputs.status == 'dirty'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          repository: ${{ github.repository_owner }}/${{ matrix.repo }}
+          path: clients/fga-${{ matrix.language }}-sdk
+          persist-credentials: false
+
+      # Checked before any token exists. The change must start from a commit
+      # on the SDK's main and leave its workflows and actions as main has them,
+      # so a pushed branch cannot run new workflow code with the fork's secrets.
+      - name: Apply the change
+        if: steps.result.outputs.status == 'dirty'
+        id: apply
+        working-directory: clients/fga-${{ matrix.language }}-sdk
+        run: |
+          DIR="$RUNNER_TEMP/factory-sync"
+          BASE=$(head -n 1 "$DIR/base")
+          if [[ ! "$BASE" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::The saved base is not a commit sha."
+            exit 1
+          fi
+          MAIN=$(git rev-parse HEAD)
+          if ! git merge-base --is-ancestor "$BASE" "$MAIN"; then
+            echo "::error::The saved base is not on the SDK's main branch."
+            exit 1
+          fi
+          git checkout -q --detach "$BASE"
+          git apply --cached --binary "$DIR/changes.patch"
+          if ! git diff --cached --quiet "$MAIN" -- .github/workflows .github/actions; then
+            git --no-pager diff --cached --stat "$MAIN" -- .github/workflows .github/actions
+            echo "::error::The change edits .github/workflows or .github/actions, so it is not pushed."
+            exit 1
+          fi
+          if git diff --cached --quiet HEAD; then
+            echo "::error::The saved change is empty."
+            exit 1
+          fi
+          git --no-pager diff --cached --stat HEAD
+
       - name: Generate token
-        if: steps.diff.outputs.dirty == 'true' && env.HAS_APP == 'true'
+        if: steps.apply.outcome == 'success' && env.HAS_APP == 'true'
         id: app-token
         uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         with:
@@ -262,7 +403,7 @@ jobs:
       # Runs dispatched from other branches (WIP previews) get their own
       # branch and a draft PR so they never clobber the main sync PR.
       - name: Resolve sync branch
-        if: steps.diff.outputs.dirty == 'true'
+        if: steps.apply.outcome == 'success'
         id: branch
         run: |
           if [[ -n "$CHANGE_ID" ]]; then
@@ -278,7 +419,7 @@ jobs:
           fi
 
       - name: Import GPG key
-        if: steps.diff.outputs.dirty == 'true' && env.HAS_GPG == 'true'
+        if: steps.apply.outcome == 'success' && env.HAS_GPG == 'true'
         id: import-gpg
         uses: crazy-max/ghaction-import-gpg@2dc316deee8e90f13e1a351ab510b4d5bc0c82cd # v7.0.0
         with:
@@ -289,11 +430,11 @@ jobs:
           workdir: clients/fga-${{ matrix.language }}-sdk
 
       - name: Commit and push sync branch
-        if: steps.diff.outputs.dirty == 'true'
+        if: steps.apply.outcome == 'success'
+        id: push
         working-directory: clients/fga-${{ matrix.language }}-sdk
         env:
           PUSH_TOKEN: ${{ steps.app-token.outputs.token || secrets.FACTORY_TOKEN }}
-          SDK_REPO: ${{ github.repository_owner }}/${{ matrix.repo }}
           BRANCH: ${{ steps.branch.outputs.name }}
           GPG_EMAIL: ${{ steps.import-gpg.outputs.email }}
         run: |
@@ -314,24 +455,30 @@ jobs:
             TRAILERS=(-m "SDK-Factory-Change: ${CHANGE_ID}")
           fi
 
-          git checkout -B "$BRANCH"
-          git add -A
-          git commit -m "$PR_TITLE" \
+          git -c core.hooksPath=/dev/null commit -q -m "$PR_TITLE" \
             -m "Generated from ${{ github.repository }}@${{ github.sha }}" \
             "${TRAILERS[@]}"
+
+          # A retry that generates the same files leaves the branch alone.
+          if git fetch -q origin "refs/heads/${BRANCH}" 2>/dev/null \
+            && [[ "$(git rev-parse 'FETCH_HEAD^{tree}')" == "$(git rev-parse 'HEAD^{tree}')" ]]; then
+            echo "The sync branch already holds this change."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           git push --force \
             "https://x-access-token:${PUSH_TOKEN}@github.com/${SDK_REPO}.git" \
-            "$BRANCH"
+            "HEAD:refs/heads/${BRANCH}"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
 
       - name: Create or update pull request
-        if: steps.diff.outputs.dirty == 'true'
+        if: steps.apply.outcome == 'success'
         id: pr
-        working-directory: clients/fga-${{ matrix.language }}-sdk
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.FACTORY_TOKEN }}
-          SDK_REPO: ${{ github.repository_owner }}/${{ matrix.repo }}
           BRANCH: ${{ steps.branch.outputs.name }}
           DRAFT: ${{ steps.branch.outputs.draft }}
+          CHANGED: ${{ steps.push.outputs.changed }}
           OPENAPI_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.openapi_ref || '' }}
         run: |
           INTRO="This PR syncs the SDK with the latest generator templates and configuration."
@@ -383,17 +530,20 @@ jobs:
             --jq '.[0].number' 2>/dev/null || true)
 
           if [[ -n "$EXISTING_PR" && "$EXISTING_PR" != "null" ]]; then
-            echo "Updating existing sync PR #$EXISTING_PR"
-            gh pr edit "$EXISTING_PR" \
-              --repo "$SDK_REPO" \
-              --title "$PR_TITLE" \
-              --body "$BODY"
-
-            gh pr comment "$EXISTING_PR" \
-              --repo "$SDK_REPO" \
-              --body "Updated with the latest regenerated output from [\`${{ github.repository }}@${GITHUB_SHA:0:7}\`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}) ([workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})). Please re-review."
-
             PR_NUMBER="$EXISTING_PR"
+            if [[ "$CHANGED" == "false" ]]; then
+              echo "Sync PR #$EXISTING_PR already has this change"
+            else
+              echo "Updating existing sync PR #$EXISTING_PR"
+              gh pr edit "$EXISTING_PR" \
+                --repo "$SDK_REPO" \
+                --title "$PR_TITLE" \
+                --body "$BODY"
+
+              gh pr comment "$EXISTING_PR" \
+                --repo "$SDK_REPO" \
+                --body "Updated with the latest regenerated output from [\`${{ github.repository }}@${GITHUB_SHA:0:7}\`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}) ([workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})). Please re-review."
+            fi
           else
             DRAFT_FLAG=()
             if [[ "$DRAFT" == "true" ]]; then
@@ -426,82 +576,66 @@ jobs:
               --add-label factory 2>/dev/null || true
           fi
 
-      - name: Record sync PR for the port worker
-        if: steps.pr.outputs.number != '' && env.PORT_AFTER == 'true'
+      # Skipped while the fork has an open port PR for this change, so a retry
+      # or an updated sync PR never opens a second one. Close a stale port PR
+      # to port again.
+      - name: Start the port worker
+        if: steps.pr.outputs.number != '' && env.PORT_AFTER == 'true' && vars.FACTORY_PAUSED != 'true'
+        id: port
         env:
-          SDK_REPO: ${{ github.repository_owner }}/${{ matrix.repo }}
+          GH_TOKEN: ${{ github.token }}
+          FORK_TOKEN: ${{ steps.app-token.outputs.token || secrets.FACTORY_TOKEN }}
           PR_NUMBER: ${{ steps.pr.outputs.number }}
           BRANCH: ${{ steps.branch.outputs.name }}
           SDK: ${{ matrix.language }}
         run: |
-          mkdir -p factory-port
-          jq -n --arg sdk "$SDK" --arg repo "$SDK_REPO" --arg pr "$PR_NUMBER" --arg branch "$BRANCH" \
-            '{sdk: $sdk, repo: $repo, pr: $pr, branch: $branch}' > "factory-port/${SDK}.json"
-
-      - name: Upload sync PR record
-        if: steps.pr.outputs.number != '' && env.PORT_AFTER == 'true'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: factory-port-${{ matrix.language }}
-          path: factory-port/
-          retention-days: 1
-
-      - name: Summary
-        if: always()
-        run: |
-          if [[ "${{ job.status }}" != "success" ]]; then
-            echo "### \`${{ matrix.repo }}\`: sync failed, see job logs" >> "$GITHUB_STEP_SUMMARY"
-          elif [[ "${{ steps.diff.outputs.dirty }}" == "true" ]]; then
-            echo "### \`${{ matrix.repo }}\`: drift detected, sync PR created/updated" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "### \`${{ matrix.repo }}\`: in sync, nothing to do" >> "$GITHUB_STEP_SUMMARY"
+          if ! PRS=$(GH_TOKEN="$FORK_TOKEN" gh pr list --repo "$SDK_REPO" --state open --limit 200 --json headRefName,isCrossRepository,url); then
+            echo "::error::Could not list the open PRs in ${SDK_REPO}, so the port worker was not started."
+            exit 1
           fi
-
-  # Runs no SDK code, so it can hold actions: write. The sync job never does.
-  port:
-    needs: sync
-    if: always() && github.event_name == 'workflow_dispatch' && inputs.change_id != '' && inputs.port_after && vars.FACTORY_PAUSED != 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      actions: write
-    steps:
-      - name: Download sync PR records
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        continue-on-error: true
-        with:
-          pattern: factory-port-*
-          merge-multiple: true
-          path: factory-port
-
-      - name: Start port workers
-        env:
-          GH_TOKEN: ${{ github.token }}
-          CHANGE_ID: ${{ inputs.change_id }}
-          TRACKING_ISSUE: ${{ inputs.tracking_issue }}
-          MODEL: ${{ inputs.model }}
-        run: |
-          shopt -s nullglob
-          files=(factory-port/*.json)
-          if [[ ${#files[@]} -eq 0 ]]; then
-            echo "No new sync PRs, so no port workers to start." >> "$GITHUB_STEP_SUMMARY"
+          OPEN=$(jq -r --arg id "$CHANGE_ID" \
+            '[.[] | select((.isCrossRepository | not) and (.headRefName | test("^sdk-factory/" + $id + "(-[0-9a-f]{16})?$")))][0].url // empty' <<<"$PRS")
+          if [[ -n "$OPEN" ]]; then
+            echo "note=Port worker not started: ${OPEN} is already open." >> "$GITHUB_OUTPUT"
             exit 0
           fi
           extra=()
           if [[ -n "$MODEL" ]]; then
             extra=(-f model="$MODEL")
           fi
-          for f in "${files[@]}"; do
-            sdk=$(jq -r .sdk "$f"); repo=$(jq -r .repo "$f")
-            pr=$(jq -r .pr "$f"); branch=$(jq -r .branch "$f")
-            gh workflow run factory-port.lock.yml \
-              --repo "$GITHUB_REPOSITORY" \
-              --ref "$GITHUB_REF_NAME" \
-              -f sdk="$sdk" \
-              -f target_repo="$repo" \
-              -f source="${repo}/pull/${pr}" \
-              -f change_id="$CHANGE_ID" \
-              -f base_branch="$branch" \
-              -f tracking_issue="$TRACKING_ISSUE" \
-              "${extra[@]}"
-            echo "- ${sdk}: port worker started for \`${repo}/pull/${pr}\` on \`${branch}\`" >> "$GITHUB_STEP_SUMMARY"
-          done
+          gh workflow run factory-port.lock.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref "$GITHUB_REF_NAME" \
+            -f sdk="$SDK" \
+            -f target_repo="$SDK_REPO" \
+            -f source="${SDK_REPO}/pull/${PR_NUMBER}" \
+            -f change_id="$CHANGE_ID" \
+            -f base_branch="$BRANCH" \
+            -f tracking_issue="$TRACKING_ISSUE" \
+            "${extra[@]}"
+          echo "note=Port worker started for \`${SDK_REPO}/pull/${PR_NUMBER}\` on \`${BRANCH}\`." >> "$GITHUB_OUTPUT"
+
+      - name: Summary
+        if: always()
+        env:
+          STATUS: ${{ steps.result.outputs.status }}
+          CHANGED: ${{ steps.push.outputs.changed }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          NOTE: ${{ steps.port.outputs.note }}
+        run: |
+          REPO="\`${{ matrix.repo }}\`"
+          if [[ "${{ job.status }}" != "success" ]]; then
+            LINE="${REPO}: publish failed, see job logs"
+          elif [[ "$STATUS" == "clean" ]]; then
+            LINE="${REPO}: in sync, nothing to publish"
+          elif [[ "$STATUS" == "failed" ]]; then
+            LINE="${REPO}: sync failed, nothing published"
+          elif [[ "$CHANGED" == "false" ]]; then
+            LINE="${REPO}: PR #${PR_NUMBER} already has this change"
+          else
+            LINE="${REPO}: sync PR #${PR_NUMBER} created or updated"
+          fi
+          echo "### ${LINE}" >> "$GITHUB_STEP_SUMMARY"
+          if [[ -n "$NOTE" ]]; then
+            echo "$NOTE" >> "$GITHUB_STEP_SUMMARY"
+          fi
